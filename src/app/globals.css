@@ -1,0 +1,124 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 20% 98%;
+    --foreground: 0 0% 11%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 11%;
+    
+    --primary: 181 63% 25%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 30 20% 96%;
+    --secondary-foreground: 0 0% 11%;
+    
+    --muted: 35 25% 94%;
+    --muted-foreground: 0 0% 42%;
+    
+    --accent: 30 25% 94%;
+    --accent-foreground: 0 0% 11%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 35 20% 88%;
+    --input: 35 20% 88%;
+    --ring: 181 63% 25%;
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 11%;
+    --foreground: 40 20% 98%;
+    
+    --card: 0 0% 15%;
+    --card-foreground: 40 20% 98%;
+    
+    --popover: 0 0% 15%;
+    --popover-foreground: 40 20% 98%;
+    
+    --primary: 182 100% 38%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 40 20% 98%;
+    
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 63%;
+    
+    --accent: 0 0% 24%;
+    --accent-foreground: 40 20% 98%;
+    
+    --destructive: 0 72% 59%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 182 100% 38%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Kanban column colors */
+.column-saved { @apply bg-muted text-muted-foreground; }
+.column-applying { @apply bg-blue-600 text-white; }
+.column-applied { @apply bg-indigo-600 text-white; }
+.column-interview { @apply bg-amber-500 text-white; }
+.column-offer { @apply bg-green-600 text-white; }
+.column-rejected { @apply bg-red-600 text-white; }
+.column-ghosted { @apply bg-slate-600 text-white; }
+
+/* Resume templates */
+.resume-minimal {
+  font-family: 'Satoshi', serif;
+}
+
+.resume-compact .sidebar {
+  width: 200px;
+}
+
+.resume-modern section {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ATS score gauge colors */
+.ats-safe { @apply text-green-600; }
+.ats-warning { @apply text-amber-500; }
+.ats-danger { @apply text-red-600; }
