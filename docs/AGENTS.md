@@ -64,19 +64,69 @@ infrastructure that all other agents depend on.
    - Screenshot on failure for debugging
 
 2. **Source scrapers** (each in `lib/scraper/sources/`):
+
+   **French Sources:**
+   - `france-travail.ts` — Official France Travail API (OAuth2 client credentials)
+     * Free official REST API — no Playwright needed
+     * Endpoint: `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search`
+     * Params: motsCles, commune (INSEE code), typeContrat, distance, range
+     * Returns: 500,000+ active listings — largest French job board
+   - `apec.ts` — APEC.fr (cadre/executive roles)
+     * Go-to for senior profiles (managers, engineers, executives)
+   - `hellowork.ts` — HelloWork (~200K listings)
+     * #4 most used French job board, strong on CDI/CDD
+   - `cadremploi.ts` — Cadrempli (exec/senior market)
+     * Premium executive market, complementary to APEC
+   - `talentcom.ts` — Talent.com (aggregator)
+     * Aggregates from 30+ French sources in one pass
+   - `welcometothejungle.ts` — Welcome to the Jungle (startup-heavy)
+
+   **International Sources:**
    - `linkedin.ts` — scrape LinkedIn Jobs search results + job detail pages
    - `indeed.ts` — scrape Indeed with pagination support
-   - `welcometothejungle.ts` — scrape WTTJ (French-heavy source, important)
    - `glassdoor.ts` — scrape Glassdoor with cookie consent bypass
-   - Each scraper returns a normalized `ScrapedJob[]` array
 
-3. **API route** `POST /api/jobs/scrape`:
+   Each scraper returns a normalized `ScrapedJob[]` array.
+
+3. **France Travail API Integration**:
+   ```ts
+   // lib/scraper/sources/france-travail.ts
+   const FT_API = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search";
+   
+   const params = {
+     motsCles: keywords,       // search keywords
+     commune: inseeCode,      // INSEE city code (e.g. 75056 = Paris)
+     typeContrat: "CDI,CDD",  // French contract types
+     distance: 30,            // km radius
+     range: "0-149"           // pagination (max 150 per call)
+   };
+   // Returns: intitule, entreprise, lieuTravail, salaire, 
+   //          typeContrat, qualificationLibelle, dateCreation, description
+   ```
+
+   **Environment variables required:**
+   ```
+   FRANCE_TRAVAIL_CLIENT_ID=your_oauth2_client_id
+   FRANCE_TRAVAIL_CLIENT_SECRET=your_oauth2_client_secret
+   ```
+
+4. **French Contract Types** (add to DB schema):
+   | Code | Label |
+   |------|-------|
+   | CDI | Contrat à durée indéterminée (permanent) |
+   | CDD | Contrat à durée déterminée (fixed-term) |
+   | MIS | Intérim / Mission |
+   | ALT | Alternance (apprentissage + contrat pro) |
+   | STG | Stage |
+   | CCE | Agent commercial |
+
+5. **API route** `POST /api/jobs/scrape`:
    - Accept `{ keywords, location, remote, language, job_type, salary_min, sources[] }`
    - Fan out to selected scrapers in parallel (Promise.allSettled)
    - Deduplicate by `sha256(url)`, upsert into `jobs` table
    - Emit progress via Supabase Realtime channel `scrape:{user_id}`
 
-4. **Search UI** (`app/search/page.tsx`):
+6. **Search UI** (`app/search/page.tsx`):
    - Search form with all filters + source checkboxes
    - Results grid: `JobCard` with company logo (Clearbit or letter avatar), title,
      location, salary range, detected language flag emoji, "Save" and "Apply" CTAs
@@ -84,7 +134,7 @@ infrastructure that all other agents depend on.
    - Filter sidebar: remote toggle, job type pills, salary slider, language selector
    - Infinite scroll pagination (20 results per page)
 
-5. **Job detail** (`app/jobs/[id]/page.tsx`):
+7. **Job detail** (`app/jobs/[id]/page.tsx`):
    - Full job description with syntax highlighting for technical requirements
    - Detected language badge, extracted skills chips
    - ATS preview panel (what score would your current resume get?)
@@ -103,182 +153,372 @@ multilingual support, ATS scoring, and document export.
 - `app/apply/[id]/page.tsx`
 - `app/api/applications/generate/route.ts`
 - `app/api/applications/ats-score/route.ts`
-- `lib/openai/`
-- `lib/docx/`
-- `lib/pdf/`
-- `lib/cv-templates/`
+- `lib/openai/generate.ts`
+- `lib/openai/ats.ts`
 - `components/editor/`
-- `components/cv/`
 
 **Tasks:**
 
-#### 2A — AI Generation Pipeline
-Implement a 5-step OpenAI GPT-4o prompt chain with structured outputs (JSON mode).
-Full prompt templates are in `CV_GENERATION_SPEC.md`.
+1. **Language detection** (`lib/openai/detect-language.ts`):
+   - Use `franc` library first for language detection with 11-language matrix
+   - Fall back to OpenAI for ambiguous cases
+   - Return: `en` | `fr` | `de` | `es` | `it` | `nl` | `pt` | `sv` | `da` | `no` | `fi`
 
-Steps:
-1. Job Analysis — extract skills, tone, language, ATS keywords
-2. Resume Adaptation — reorder/rephrase bullets using job keywords (no fabrication)
-3. Cover Letter Generation — language-matched, tone-matched, 280-350 words
-4. ATS Scoring — structured score object with keyword gap analysis
-5. Translation Variants — on-demand translation to any supported language
+2. **5-step GPT-4o pipeline** (`lib/openai/generate.ts`):
 
-#### 2B — CV Templates
-Build 5 ATS-optimized React CV templates (single column, no tables, no images):
-- `minimal` — serif heading, generous whitespace
-- `compact` — dense layout, text-only skill list
-- `modern` — teal left border accent
-- `classic` — traditional, black/white, small-caps headers
-- `international` — photo placeholder, EU market fields
+   **Step 1 — Analyze Job:**
+   ```ts
+   const JOB_ANALYSIS_PROMPT = `You are a senior technical recruiter analyzing a job posting.
+   Extract and format as JSON:
+   {
+     "key_requirements": [...],
+     "must_have_skills": [...],
+     "nice_to_have_skills": [...],
+     "seniority": "junior|mid|senior|principal|staff",
+     "tone": "formal|casual|academic",
+     "salary_indicative": null | { "min": number, "max": number, "currency": "EUR" }
+   }
+   
+   Job: {job_description}
+   `;
+   ```
 
-All templates must be A4 print-safe with embedded fonts.
+   **Step 2 — Adapt Resume:**
+   ```ts
+   const RESUME_ADAPTATION_PROMPT = `You are a senior technical resume writer.
+   Reorder and rephrase your existing experience to match the job requirements.
+   DO NOT invent facts — only reframe existing achievements.
+   Output as HTML optimized for ATS (single column, no tables, no icons).
+   
+   Original resume: {original_resume}
+   Job analysis: {job_analysis}
+   Target template: {template_name} (minimal|compact|modern|classic|international)
+   `;
+   ```
 
-#### 2C — PDF & DOCX Export
-- PDF via `@react-pdf/renderer` — A4, 2cm margins, embedded Inter font
-- DOCX via `docx` npm package — proper heading styles for ATS parsing
-- Files saved to Supabase Storage under `/users/{user_id}/applications/{app_id}/`
+   **Step 3 — Generate Cover Letter:**
+   ```ts
+   const COVER_LETTER_PROMPT = `You are a professional cover letter writer.
+   Match the company's tone (startup = casual, enterprise = formal).
+   Write in the detected job language: {language}.
+   
+   Cover letter structure:
+   - Opening: Address to hiring manager (or "Madame, Monsieur," for French formal)
+   - Hook: Why *this* company? (research required)
+   - Body: 2-3 paragraphs bridging your experience to their needs
+   - Call to action: Polite close, availability for interview
+   
+   My profile: {profile}
+   Job: {job}
+   Tone: {detected_tone}
+   `;
+   ```
 
-#### 2D — Application Editor UI
-Split-pane layout:
-- Left 60%: Live CV preview + template switcher (5 thumbnails) + language selector
-- Right 40%: Tabs — Resume editor (tiptap) | Cover Letter editor | ATS Score
-- ATS Score tab: SVG arc gauge + grade badge + keyword chips + suggestions list
-- Bottom bar: Save Draft, Export PDF, Export DOCX, Auto-Apply CTA
+   **Step 4 — ATS Scoring:**
+   ```ts
+   const ATS_SCORING_PROMPT = `Score resume + cover letter against job description.
+   Return structured JSON:
+   {
+     "overall": number,           // 0-100
+     "keyword_match": number,      // % of job keywords found
+     "missing_keywords": [...],  // top 10 missing
+     "format_score": number,    // penalize columns, tables, images
+     "length_score": number,    // ideal: 400-700 words for resume
+     "language_match": boolean,  // does document language match job language
+     "suggestions": [...],       // 3-5 actionable improvements
+     "ats_safe": boolean       // true if score >= 70
+   }
+   
+   Resume: {resume}
+   Cover letter: {cover_letter}
+   Job description: {job_description}
+   `;
+   ```
 
-**Done when:** CV + cover letter generated in job's language, ATS score displayed,
-PDF and DOCX downloadable, template switching works.
+   **Step 5 — Translation (if needed):**
+   ```ts
+   const TRANSLATION_PROMPT = `Translate to {target_language}.
+   Preserve all markdown, bullet points, and formatting.
+   Maintain original meaning — do not localize names or company names.
+   Keep dates in original format — do not convert between date systems.
+   
+   Source: {document}
+   `;
+   ```
+
+3. **CV Templates** (in `components/editor/`):
+   All single-column, ATS-optimized (no columns, no tables, no icons):
+   - `minimal.tsx` — single column, generous whitespace, serif heading
+   - `compact.tsx` — two-column skills sidebar, dense layout
+   - `modern.tsx` — subtle accent color, left border section headers
+   - `classic.tsx` — traditional, widely compatible
+   - `international.tsx` — CV-compatible, multi-country format
+
+4. **Document export** (`lib/docx/export.ts`):
+   - Use `docx` npm package to generate .docx files client-side
+   - Offer HTML preview + PDF print option
+   - Upload to Supabase Storage under `/users/{user_id}/applications/`
+
+5. **ATS Score Gauge UI** (`components/editor/ATSScoreGauge.tsx`):
+   - Visual gauge showing 0-100 score
+   - Keyword chips: matched = green, missing = red
+   - Suggestions panel with actionable improvements
+   - "ats_safe" badge (green if >= 70, red if < 70)
+
+**Done when:** User can generate a resume + cover letter in the job's language, export as .docx, view ATS score.
 
 ---
 
 ### AGENT 3 — Kanban Board Agent
 
-**Responsibility:** Build the drag-and-drop application tracking board.
+**Responsibility:** Build the application tracker with drag-and-drop Kanban board,
+slide-over details, and timeline.
 
 **Owns:**
 - `app/board/page.tsx`
-- `app/api/applications/[id]/route.ts`
 - `components/kanban/`
+- All kanban-related API routes
 
 **Tasks:**
 
-1. Kanban board with @dnd-kit — 7 fixed columns:
-   saved (gray) → applying (blue) → applied (indigo) → interview (amber)
-   → offer (green) → rejected (red) → ghosted (slate)
+1. **Kanban columns** (non-deletable):
+   | Column | Color | Description |
+   |--------|------|-------------|
+   | saved | Gray | Job saved, not yet applied |
+   | applying | Blue | Application in progress |
+   | applied | Indigo | Submitted — awaiting response |
+   | interview | Amber | Interview scheduled or completed |
+   | offer | Green | Offer received |
+   | rejected | Red | Application rejected |
+   | ghosted | Slate | No response after 3 weeks |
 
-2. Application card: company logo, job title, applied date, ATS badge, language flag,
-   hover quick actions (view/edit/delete)
+2. **Kanban board** (`components/kanban/KanbanBoard.tsx`):
+   - Use `@dnd-kit/core` + `@dnd-kit/sortable` for drag and drop
+   - Column counts visible in header badges
+   - Filter bar: by date range, company, job type, ATS score range
 
-3. Slide-over detail panel (400px from right):
-   - Full job description, document preview thumbnails, ATS breakdown
-   - Timeline of events (applied, interview, offer/rejection)
-   - Notes textarea with 500ms debounced auto-save
-   - "Add Event" manual milestone button
-   - PDF/DOCX download buttons
+3. **Application card** (`components/kanban/ApplicationCard.tsx`):
+   - Company logo (Clearbit or letter avatar)
+   - Job title, application date
+   - ATS score badge
+   - Quick action buttons: edit, view, delete
 
-4. Column move triggers:
-   - → interview: prompt to log interview date
-   - → rejected/ghosted: prompt for reason note
-   - → offer: prompt for salary + start date
+4. **Slide-over detail panel**:
+   - Full application details
+   - Generated documents (resume, cover letter)
+   - Timeline of events (status changes, notes, reminders)
+   - Notes textarea with auto-save (debounced 500ms)
 
-5. Filter bar: date range, company search, ATS grade, job type
-   Stats row: total applied, response rate %, avg ATS score, interview rate %
+5. **Timeline events** (`application_events` table):
+   - `status_changed` — column transitions
+   - `note_added` — user notes
+   - `document_generated` — CV generation events
+   - `interview_scheduled` — interview scheduling
+   - `offer_received` — offer details
 
-**Done when:** Drag-and-drop works, slide-over shows full detail, notes auto-save.
+**Done when:** User can drag applications between columns, view full details, track history.
 
 ---
 
 ### AGENT 4 — Auto-Apply Agent
 
-**Responsibility:** Playwright-based form filler for automatic job application submission.
+**Responsibility:** Build the automated application submittal system using Playwright,
+detecting application platforms and handling multi-step forms.
 
 **Owns:**
 - `app/api/applications/auto-apply/route.ts`
-- `lib/auto-apply/`
+- `lib/scraper/auto-apply/`
+- Auto-apply UI components
 
 **Tasks:**
 
-1. Platform detector — identify ATS from URL/page:
-   LinkedIn Easy Apply, Greenhouse, Lever, Workday, Breezy HR, generic fallback
+1. **Application platform detection**:
+   - **LinkedIn Easy Apply** — detect "Easy Apply" button, fill form fields
+   - **Greenhouse** — detect by `greenhouse.io` domain
+   - **Lever** — detect by `lever.co` domain
+   - **Workday** — detect by `workday.com` domain
+   - **Breezy HR** — detect by `breezy.hr` domain
+   - **Direct apply** — company careers page form
 
-2. Per-platform fillers in `lib/auto-apply/platforms/`:
-   - `linkedin.ts` — Easy Apply multi-step form + resume upload
-   - `greenhouse.ts` — standard fields + PDF upload
-   - `lever.ts` — cover letter text field support
-   - `generic.ts` — heuristic field detection by label/aria/placeholder/name
+2. **Profile data** (from `user_profiles` table):
+   - Personal: name, email, phone, address
+   - Professional: LinkedIn URL, portfolio URL
+   - Availability: start date, desired salary, work authorization
+   - Languages: spoken with proficiency level
+   - Quick answers: JSONB map for common questions
 
-3. Safety rules:
-   - Always return `requires_review` with screenshot before submitting
-   - CAPTCHA detected → return `manual_required` immediately
-   - Timeout: 90 seconds max
-   - Log all interactions to `application_events`
+3. **Auto-apply flow**:
+   ```
+   1. User clicks "Auto-Apply" on a job
+   2. System detects application platform
+   3. Playwright launches (headless)
+   4. Navigate to job URL
+   5. Fill form fields from profile data
+   6. Upload generated resume PDF
+   7. Handle multi-step forms (up to 5 pages)
+   8. Submit and capture confirmation
+   9. Log result: success | manual_required | failed
+   ```
 
-4. Result statuses:
-   - `success` — confirmation captured
-   - `manual_required` — captcha/login/complex form
-   - `failed` — unexpected error + screenshot
+4. **Safety rules**:
+   - **Rate limiting:** Max 10 applications per day per platform
+   - **Random delays:** 30-120 seconds between submissions
+   - **Captcha detection:** If detected → halt and mark `manual_required`
+   - **Form validation:** Skip if > 5 fields missing from profile
 
-**Done when:** LinkedIn Easy Apply and Greenhouse auto-apply work end-to-end.
+5. **Manual fallback**:
+   - If auto-apply fails, show "Manual Apply" button
+   - Opens job URL in new tab
+   - Documents pre-downloaded
+
+**Done when:** User can auto-apply to LinkedIn jobs with one click, view auto-apply logs.
 
 ---
 
 ### AGENT 5 — Dashboard & Profile Agent
 
-**Responsibility:** Dashboard overview, user onboarding, and settings.
+**Responsibility:** Build the dashboard overview, user profile management, settings,
+and data export.
 
 **Owns:**
 - `app/dashboard/page.tsx`
 - `app/profile/page.tsx`
 - `app/settings/page.tsx`
-- `components/dashboard/`
+- Dashboard-related API routes
 
 **Tasks:**
 
-1. Dashboard KPIs: Total Applications, Response Rate %, Avg ATS Score,
-   Interviews This Month, Offers Received
-   + Application status donut chart (Recharts SVG)
-   + Recent activity feed (last 10 events)
-   + Weekly velocity sparkline
+1. **Dashboard KPIs** (`app/dashboard/page.tsx`):
+   | Metric | Calculation |
+   |--------|-------------|
+   | Total applied | COUNT WHERE status != 'saved' |
+   | Interviews | COUNT WHERE column = 'interview' |
+   | Offers | COUNT WHERE column = 'offer' |
+   | Response rate | (applied - rejected - ghosted) / applied |
+   | Avg ATS score | AVG(ats_score.overall) |
 
-2. Profile onboarding (6-step stepper):
-   1. Personal info
-   2. Work preferences (remote, type, salary, availability)
-   3. Languages spoken with proficiency level
-   4. Base resume upload (PDF drag-drop → pdf-parse text extraction)
-   5. Quick answers for auto-apply common questions
-   6. Work authorization
+2. **Recent activity feed**:
+   - Timeline of application status changes
+   - Upcoming interviews (from calendar integration)
+   - New jobs matching saved searches
 
-3. Settings:
-   - OpenAI API key override (user brings own key)
-   - Notification preferences
-   - Scraping preferences (default sources, rate limiting)
-   - Data export: CSV of all applications + ZIP of all documents
-   - Danger zone: delete account
+3. **Quick actions**:
+   - "Add job manually" button
+   - "Search new jobs" button
+   - "Export all data" button
 
-**Done when:** Dashboard shows live KPIs, onboarding completable, resume upload works.
+4. **Profile page** (`app/profile/page.tsx`):
+   - Personal info form: name, email, phone, location
+   - Professional: LinkedIn URL, portfolio URL
+   - Base resume upload (text or PDF extraction)
+   - Availability settings
+   - Languages spoken with levels
+
+5. **Settings page** (`app/settings/page.tsx`):
+   - **API keys:** OpenAI key (with reveal toggle), Clearbit key
+   - **Notifications:** Email alerts for new jobs, interview reminders
+   - **Data export:** Download all data as JSON/CSV
+   - **Theme:** Light/dark mode toggle
+   - **Delete account:** With confirmation
+
+**Done when:** User can view dashboard metrics, manage profile, export data.
 
 ---
 
-## Coordination Rules
+## Shared Infrastructure
 
-1. **AGENT 0 must complete before any other agent starts.**
-2. Agents 1–5 run in parallel after Agent 0.
-3. `types/index.ts` is owned by Agent 0. Others open PRs to propose additions.
-4. API routes are owned exclusively by the listed agent — no cross-agent edits.
-5. Schema is frozen after Agent 0. New columns go in new migration files only.
-6. All agents must pass `npm run lint` and `npm run type-check` before marking done.
-7. Conventional commits: `feat(agent-1): add linkedin scraper`
+### Types (`types/index.ts`)
 
----
+```ts
+interface Job {
+  id: string
+  title: string
+  company: string
+  location: string
+  description_text: string
+  description_html: string
+  url: string
+  url_hash: string
+  source: 'linkedin' | 'indeed' | 'welcometothejungle' | 'glassdoor' |
+         'france-travail' | 'apec' | 'hellowork' | 'cadremploi' | 'talentcom'
+  posted_at: string
+  detected_language: 'en' | 'fr' | 'de' | 'es' | 'it' | 'nl'
+  salary_range: { min: number; max: number; currency: string } | null
+  skills_required: string[]
+  remote: boolean
+  job_type: 'CDI' | 'CDD' | 'MIS' | 'ALT' | 'STG' | 'CCE' | 'fulltime' | 'parttime'
+  scraped_at: string
+}
 
-## Definition of Done
+interface Application {
+  id: string
+  user_id: string
+  job_id: string
+  status: 'draft' | 'submitted' | 'withdrawn'
+  kanban_column: 'saved' | 'applying' | 'applied' | 'interview' | 'offer' | 'rejected' | 'ghosted'
+  ats_score: ATSScore | null
+  resume_html: string | null
+  resume_docx_path: string | null
+  cover_letter_html: string | null
+  cover_letter_docx_path: string | null
+  template_used: 'minimal' | 'compact' | 'modern' | 'classic' | 'international'
+  auto_apply_result: { status: string; error?: string } | null
+  notes: string | null
+  applied_at: string | null
+  created_at: string
+  updated_at: string
+}
 
-- [ ] All 8 pages render without console errors in light + dark mode
-- [ ] Job scraping returns results for LinkedIn and WTTJ within 60 seconds
-- [ ] AI generation produces CV + cover letter in the correct language of the job
-- [ ] PDF export is ATS-parseable
-- [ ] Kanban drag-and-drop works on Chrome, Firefox, Safari
-- [ ] Auto-apply succeeds on a test LinkedIn Easy Apply job
-- [ ] All Supabase queries protected by RLS
-- [ ] Lighthouse: Performance >= 85, Accessibility >= 90
-- [ ] TypeScript strict mode: zero `any` types
-- [ ] All env vars documented in `.env.example`
+interface ATSScore {
+  overall: number
+  keyword_match: number
+  missing_keywords: string[]
+  format_score: number
+  length_score: number
+  language_match: boolean
+  suggestions: string[]
+  ats_safe: boolean
+}
+```
+
+### Environment Variables
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
+FRANCE_TRAVAIL_CLIENT_ID=
+FRANCE_TRAVAIL_CLIENT_SECRET=
+CLEARBIT_API_KEY=
+PLAYWRIGHT_HEADLESS=true
+```
+
+### Supabase Storage Buckets
+
+| Bucket | Purpose |
+|--------|---------|
+| `resumes` | User-generated .docx resumes |
+| `cover-letters` | User-generated .docx cover letters |
+| `avatars` | User profile images |
+
+### Development Order
+
+1. **Agent 0** — Foundation (blocks all others)
+2. **Agents 1-5** — Run in parallel once Agent 0 is done
+3. **Integration** — Connect all pieces, end-to-end testing
+4. **Polish** — Empty states, error handling, mobile UI, dark mode
+
+### Definition of Done
+
+- [ ] User can sign up / log in with email + Google
+- [ ] User can search jobs and see scraped results in real-time
+- [ ] User can generate resume + cover letter in the job's language
+- [ ] ATS score displays with keyword gap analysis and suggestions
+- [ ] User can edit generated documents before applying
+- [ ] User can drag-and-drop applications across Kanban columns
+- [ ] User can auto-apply to LinkedIn Easy Apply jobs
+- [ ] User can download documents as .docx
+- [ ] Dark mode and light mode work correctly
+- [ ] All data is RLS-protected — users only see their own data
+- [ ] Responsive design works down to 375px mobile
