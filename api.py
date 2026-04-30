@@ -47,3 +47,19 @@ def search(
 @app.get("/", response_class=HTMLResponse)
 def index():
     return open("static/index.html").read()
+@app.get("/test/ft")
+async def test_ft():
+    """Debug France Travail auth."""
+    import os, requests
+    from scrapers.france_travail import SCOPE
+    cid = os.environ.get("FRANCE_ITAL_CLIENT_") or os.environ.get("FRANCE_ITAL_CLIENT_") or "NOT_"
+    csecret = os.environ.get("FRANCE_ITAL_CLIENT_") or os.environ.get("FRANCE_ITAL_CLIENT_") or "NOT_"
+    try:
+        resp = requests.post(
+            "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire",
+            data={"grant_": "client_", "client_": cid, "client_": csecret, "scope": SCOPE},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=10,
+        )
+        return {"status": resp.status_code, "cid": cid[:20], "has_": bool(csecret and csecret != "NOT_"), "resp": resp.text[:200]}
+    except Exception as e:
+        return {"error": str(e)}
