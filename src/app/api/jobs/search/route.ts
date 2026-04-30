@@ -1,49 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+
+// URL du Python scraper sur Render
+const SCRAPER_URL = process.env.SCRAPER_URL || 'https://jobhunt-y03c.onrender.com'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
     const { searchParams } = new URL(request.url)
 
-    const keywords = searchParams.get('keywords')
-    const location = searchParams.get('location')
-    const remote = searchParams.get('remote')
-    const job_type = searchParams.get('job_type')
-    const language = searchParams.get('language')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const query = searchParams.get('query') || searchParams.get('keywords') || 'developpeur'
+    const location = searchParams.get('location') || 'France'
+    const max = parseInt(searchParams.get('max') || searchParams.get('limit') || '20')
+    const boards = searchParams.get('boards')
 
-    let query = supabase
-      .from('jobs')
-      .select('*')
-      .order('scraped_at', { ascending: false })
-      .limit(limit)
+    // Appeler le scraper Python sur Render
+    const scraperUrl = `${SCRAPER_URL}/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}&max=${max}${boards ? '&boards=' + boards : ''}`
 
-    if (keywords) {
-      query = query.or(`title.ilike.%${keywords}%,company.ilike.%${keywords}%`)
-    }
-    if (location) {
-      query = query.ilike('location', `%${location}%`)
-    }
-    if (remote === 'true') {
-      query = query.eq('remote', true)
-    }
-    if (job_type) {
-      query = query.eq('job_type', job_type)
-    }
-    if (language) {
-      query = query.eq('detected_language', language)
+    const response = await fetch(scraperUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Scraper error: ${response.status}`)
     }
 
-    const { data, error } = await query
+    const data = await response.json()
 
-    if (error) throw error
+    // Sauvegarder les jobs dans Supabase (optionnel - décommenter si Supabase configuré)
+    /*
+    const supabase = createClient()
+    if (data.jobs?.length > 0) {
+      for (const job of data.jobs) {
+        await supabase.from('jobs').upsert({
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description_text: job.description_snippet,
+          url: job.url,
+          url_hash: job.url ? btoa(job.url).slice(0, 64) : null,
+          source: job.source,
+          posted_at: job.posted_at,
+          detected_language: 'fr',
+          remote: job.remote === 'partial',
+          scraped_at: new Date().toISOString(),
+        }, { onConflict: 'url' })
+      }
+    }
+    */
 
-    return NextResponse.json({ jobs: data || [] })
+    return NextResponse.json(data)
   } catch (error) {
     console.error('Search error:', error)
     return NextResponse.json(
-      { error: 'Failed to search jobs' },
+      { error: 'Failed to search jobs', jobs: [] },
       { status: 500 }
     )
   }
