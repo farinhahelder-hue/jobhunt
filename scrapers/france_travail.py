@@ -204,3 +204,16 @@ if __name__ == "__main__":
     results = search(query="développeur", departement="75", max_results=10)
     print(f"Found {len(results)} jobs")
     print(json.dumps(results[:2], indent=2, ensure_ascii=False))
+
+# Debug endpoint
+from fastapi import APIRouter
+router = APIRouter()
+
+@router.get("/debug/ft")
+async def debug_ft():
+    """Debug France Travail scraper."""
+    try:
+        token = get_token()
+        return {"status": "ok", "token_preview": token[:10] + "..."}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
