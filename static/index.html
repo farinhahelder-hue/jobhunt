@@ -1,1 +1,145 @@
-PLACEHOLDER_WILL_BE_REPLACED
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JobHunt France</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+    header { background: #2563eb; color: white; padding: 1.5rem 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p  { opacity: .8; margin-top: .25rem; }
+    main { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: .4rem; flex: 1; min-width: 180px; }
+    label { font-size: .8rem; font-weight: 600; text-transform: uppercase; color: #64748b; }
+    input, select { padding: .55rem .75rem; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+    input:focus, select:focus { outline: none; border-color: #2563eb; }
+    button { background: #2563eb; color: white; border: none; border-radius: 8px; padding: .6rem 1.4rem; font-size: 1rem; cursor: pointer; font-weight: 600; transition: background .2s; }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+    #stats { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .stat { background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: .5rem 1rem; font-size: .9rem; }
+    .stat span { font-weight: 700; color: #2563eb; }
+    .job { border-left: 4px solid #2563eb; padding: .75rem 1rem; margin-bottom: .75rem; background: #f8fafc; border-radius: 0 8px 8px 0; }
+    .job h3 { font-size: 1rem; font-weight: 600; }
+    .job .meta { font-size: .85rem; color: #64748b; margin-top: .2rem; }
+    .job a { color: #2563eb; text-decoration: none; font-size: .85rem; }
+    .job a:hover { text-decoration: underline; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: .1rem .45rem; font-size: .75rem; font-weight: 600; margin-right: .4rem; }
+    #loading { display: none; text-align: center; padding: 2rem; color: #64748b; }
+    #error { display: none; color: #dc2626; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .spinner { width: 36px; height: 36px; border: 4px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🔉 JobHunt France</h1>
+  <p>Search LinkedIn, WTTJ, HelloWork and more — all at once.</p>
+</header>
+<main>
+  <div class="card">
+    <div class="form-row" style="margin-bottom:1rem;">
+      <div class="form-group" style="flex:3;">
+        <label for="query">Keywords</start>
+        <input id="query" type="text" value="développeur Python" placeholder="e.g. data scientist" />
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label for="location">Location</label>
+        <input id="location" type="text" value="Paris" placeholder="e.g. Lyon" />
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label for="max">Max / board</label>
+        <input id="max" type="number" value="10" min="1" max="50" />
+      </div>
+    </div>
+    <div class="form-row" style="align-items:flex-end;">
+      <div class="form-group">
+        <label for="boards">Boards (leave blank = all)</label>
+        <select id="boards" multiple style="height:100px;">
+          <option value="linkedin">LinkedIn</option>
+          <option value="wttj">Welcome to the Jungle</option>
+          <option value="hellowork">HelloWork</option>
+          <option value="france_travail">France Travail</option>
+          <option value="apec">APEC</option>
+          <option value="monster">Monster</option>
+          <option value="indeed">Indeed</option>
+        </select>
+      </div>
+      <div>
+        <button id="searchBtn" onclick="doSearch()">Search Jobs</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="error"></div>
+  <div id="loading"><div class="spinner"></div>Scraping job boards...</div>
+  <div id="results"></div>
+</main>
+<script>
+async function doSearch() {
+  const q = document.getElementById("query").value.trim();
+  const loc = document.getElementById("location").value.trim();
+  const max = document.getElementById("max").value;
+  const boardsEl = document.getElementById("boards");
+  const selected = [...boardsEl.selectedOptions].map(o => o.value);
+
+  let url = `/search?query=${encodeURIComponent(q)}&location=${encodeURIComponent(loc)}&max=${max}`;
+  selected.forEach(b => url += `&boards=${b}`);
+
+  document.getElementById("error").style.display = "none";
+  document.getElementById("results").innerHTML = "";
+  document.getElementById("loading").style.display = "block";
+  document.getElementById("searchBtn").disabled = true;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderResults(data);
+  } catch(e) {
+    document.getElementById("error").textContent = "Error: " + e.message;
+    document.getElementById("error").style.display = "block";
+  } finally {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("searchBtn").disabled = false;
+  }
+}
+
+function renderResults(data) {
+  const el = document.getElementById("results");
+  if (!data.jobs || data.jobs.length === 0) {
+    el.innerHTML = "<div class='card' style='text-align:center;color:#64748b'>No jobs found.</div>";
+    return;
+  }
+  let stats = `<div id="stats"><div class="stat">Total: <span>${data.total}</span></div>`;
+  for (const [board, count] of Object.entries(data.by_board)) {
+    stats += `<div class="stat">${esc(board)}: <span>${count}</span></div>`;
+  }
+  stats += "</div>";
+
+  const jobs = data.jobs.map(j => `
+    <div class="job">
+      <h3>${esc(j.title || "—")}</h3>
+      <div class="meta">
+        <span class="badge">${esc(j.source || "")}</span>
+        ${esc(j.company || "")} ${j.location ? "· " + esc(j.location) : ""}
+        ${j.contract ? "· " + esc(j.contract) : ""}
+        ${j.salary ? "· 💰 " + esc(j.salary) : ""}
+      </div>
+      ${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">View job →</a>` : ""}
+    </div>
+  `).join("");
+
+  el.innerHTML = `<div class="card">${stats}${jobs}</div>`;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+</script>
+</body>
+</html>
