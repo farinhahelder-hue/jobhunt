@@ -41,20 +41,18 @@ AllHands should split this project across **6 specialized sub-agents** working i
 1. **Playwright scraper engine** (`lib/scraper/playwright.ts`):
    - Use `playwright-extra` + `puppeteer-extra-plugin-stealth`
    - Randomized user-agent pool, random delay 800–2500ms
-2. **French Source scrapers** (`lib/scraper/sources/`):
-   - `france-travail.ts`: Implement **official REST API** (francetravail.io) with OAuth2 client_credentials. Support `commune` (INSEE codes) and all French contract types (CDI, CDD, MIS, ALT, STG).
+2. **Strategy Implementation**: For each jobboard (LinkedIn, France Travail, APEC, Indeed, etc.), strictly follow the integration strategies and methods (API vs Scraping) defined in **`docs/JOBBOARD_FACTORY_SPEC.md`**.
+3. **French Source scrapers** (`lib/scraper/sources/`):
+   - `france-travail.ts`: Implement **official REST API** (francetravail.io) with OAuth2.
    - `apec.ts`: Scrape Apec.fr using Playwright for Cadre/Executive roles.
    - `hellowork.ts`: Scrape HelloWork for general French CDI/CDD roles.
-   - `welcometothejungle.ts`: Scrape WTTJ for startup/tech culture roles.
-3. **International Source scrapers**:
+   - `welcometothejungle.ts`: Scrape WTTJ using the **Algolia API** discovery.
+4. **International Source scrapers**:
    - `linkedin.ts`: Scrape LinkedIn Jobs search results.
    - `indeed.ts`: Scrape Indeed with pagination.
-4. **API route** `POST /api/jobs/scrape`:
+5. **API route** `POST /api/jobs/scrape`:
    - Fan out to selected scrapers. Deduplicate by `sha256(url)`.
    - Real-time progress via Supabase Realtime channel.
-5. **Search UI** (`app/search/page.tsx`):
-   - Filter by French contract types (CDI, CDD, etc.).
-   - Results grid with language flag emojis.
 
 **Done when:** User can search French and international sources, see results in real-time, and filter by contract type.
 
