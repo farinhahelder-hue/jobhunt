@@ -27,6 +27,8 @@ def search(
     boards: Optional[List[str]] = Query(None, description="Boards to search"),
 ):
     """Search French job boards and return combined results."""
+    if isinstance(boards, str) and boards:
+        boards = [b.strip() for b in boards.split(",")]
     results = run_all(
         query=query,
         location=location,
