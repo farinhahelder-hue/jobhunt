@@ -25,7 +25,7 @@ try:
 except ImportError:
     pass
 
-AUTH_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
+AUTH_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
 DETAIL_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/{id}"
 
