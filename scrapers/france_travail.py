@@ -69,7 +69,7 @@ class FranceTravailAuth:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=15,
         )
-        resp.raise_for_status()
+        print("FT Auth Response:", resp.status_code, resp.text[:100]); resp.raise_for_status()
         data = resp.json()
         self._token = data["access_token"]
         self._expires_at = time.time() + data.get("expires_in", 1500)
@@ -181,7 +181,7 @@ def search(
 
         if resp.status_code == 204:
             break
-        resp.raise_for_status()
+        print("FT Auth Response:", resp.status_code, resp.text[:100]); resp.raise_for_status()
 
         data = resp.json()
         offers = data.get("resultats", [])
