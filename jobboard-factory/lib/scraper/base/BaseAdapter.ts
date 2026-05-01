@@ -4,25 +4,25 @@
 // ============================================================
 
 import { ScrapedJob, ScrapeParams, ScrapeResult, ScrapeError, JobSource } from "../../types";
-import { throttle, nextUserAgent, deduplicateJobs } from "../utils";
+import { randomDelay, getUserAgent, deduplicateJobs } from "../utils";
 
 export abstract class BaseAdapter {
   abstract readonly source: JobSource;
-  abstract readonly baseUrl: string;
+  readonly baseUrl?: string;
 
   protected requestCount = 0;
   protected errors: ScrapeError[] = [];
 
   // ── Must implement ──────────────────────────────────────────
-  abstract scrape(params: ScrapeParams): Promise<ScrapeResult>;
+  abstract scrape(params: ScrapeParams): Promise<ScrapedJob[]>;
 
   // ── Shared helpers ──────────────────────────────────────────
   protected async wait(): Promise<void> {
-    await throttle();
+    await new Promise((resolve) => setTimeout(resolve, randomDelay()));
   }
 
   protected get userAgent(): string {
-    return nextUserAgent();
+    return getUserAgent();
   }
 
   protected get defaultHeaders(): Record<string, string> {
@@ -40,14 +40,33 @@ export abstract class BaseAdapter {
     };
   }
 
+  protected async fetch(url: string, options?: RequestInit): Promise<Response> {
+    this.requestCount++;
+    await this.wait();
+    return fetch(url, {
+      headers: this.defaultHeaders,
+      ...options,
+    });
+  }
+
+  protected async fetchHtml(url: string, options?: RequestInit): Promise<string> {
+    const res = await this.fetch(url, options);
+    return res.text();
+  }
+
   protected addError(error: Omit<ScrapeError, "timestamp">): void {
     this.errors.push({ ...error, timestamp: new Date() });
     if (error.type === "SELECTOR_MISMATCH") {
-      console.error(`[${this.source.toUpperCase()}] ⚠️  SELECTOR_MISMATCH: ${error.message}`);
+      console.error(`[${this.source.toUpperCase()}] ⚠️ SELECTOR_MISMATCH: ${error.message}`);
     }
   }
 
-  protected buildResult(jobs: ScrapedJob[], totalFound: number, pagesScraped: number, durationMs: number): ScrapeResult {
+  protected buildResult(
+    jobs: ScrapedJob[],
+    totalFound: number,
+    pagesScraped: number,
+    durationMs: number
+  ): ScrapeResult {
     return {
       source: this.source,
       jobs: deduplicateJobs(jobs),
