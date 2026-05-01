@@ -4,30 +4,28 @@
 // ============================================================
 
 export type JobType = "CDI" | "CDD" | "MIS" | "ALT" | "STG" | "FREELANCE" | "UNKNOWN";
-export type JobSource = 
+
+export type JobSource =
   | "linkedin"
   | "france_travail"
   | "indeed"
   | "apec"
   | "hellowork"
   | "wttj"
-  | "glassdoor"
   | "cadremploi"
-  | "otta"
   | "talent"
-  | "meteojob"
-  | "hired";
+  | "monster";
 
 export interface SalaryRange {
   min?: number;
   max?: number;
-  currency: string;           // "EUR", "USD", etc.
+  currency: string;       // "EUR", "USD", etc.
   period: "hour" | "month" | "year";
-  raw?: string;               // raw string as found on page
+  raw?: string;           // raw string as found on page
 }
 
 export interface ScrapedJob {
-  id: string;                 // SHA-256 of source URL
+  id: string;             // SHA-256 of source URL
   source: JobSource;
   title: string;
   company: string;
@@ -35,22 +33,26 @@ export interface ScrapedJob {
   city?: string;
   postal_code?: string;
   country?: string;
-  job_type: JobType;
-  description: string;        // plain text, HTML stripped
+  job_type?: JobType;
+  description?: string;   // plain text, HTML stripped
   salary_range?: SalaryRange;
+  salaryRange?: string;   // raw salary string (legacy)
   url: string;
   posted_at?: Date;
-  scraped_at: Date;
-  tags?: string[];            // skills, technologies
-  remote?: "full" | "hybrid" | "onsite" | null;
+  postedAt?: string | Date; // legacy
+  scraped_at?: Date;
+  tags?: string[];        // skills, technologies
+  remote?: "full" | "hybrid" | "onsite" | boolean | null;
   experience_level?: "junior" | "mid" | "senior" | "executive" | null;
+  jobType?: string;       // legacy normalized
+  postalCode?: string;    // legacy
   raw?: Record<string, unknown>; // original raw data for debugging
 }
 
 export interface ScrapeParams {
   keywords: string;
   location?: string;
-  pages?: number;             // default: 3
+  pages?: number;         // default: 3
   job_type?: JobType;
   remote?: boolean;
 }
@@ -65,9 +67,9 @@ export interface ScrapeResult {
 }
 
 export interface ScrapeError {
-  type: "SEERECTOR_MISMATCH" | "RATE_LIMIT" | "AUTH_REQUIRED" | "NETWORK_ERROR" | "PARSE_ERROR";
+  type: "SELECTOR_MISMATCH" | "RATE_LIMIT" | "AUTH_REQUIRED" | "NETWORK_ERROR" | "PARSE_ERROR";
   message: string;
   url?: string;
-  screenshot?: string;        // base64 screenshot on SELECTOR_MISMATCH
+  screenshot?: string;    // base64 screenshot on SELECTOR_MISMATCH
   timestamp: Date;
 }
