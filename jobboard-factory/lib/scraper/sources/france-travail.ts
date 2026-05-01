@@ -3,24 +3,24 @@ import { BaseAdapter } from '../base/BaseAdapter'
 import { hashUrl, normalizeJobType, parseLocation, detectRemote } from '../utils'
 
 export class FranceTravailAdapter extends BaseAdapter {
-  name = 'france_travail'
-  baseUrl = 'https://api.francetravail.io/partenanies/offres/search'
-  
+  readonly source = 'france_travail' as const
+  readonly baseUrl = 'https://api.francetravail.io/partenaires/offres/v2/offres/search'
+
   async scrape(params: ScrapeParams): Promise<ScrapedJob[]> {
     const jobs: ScrapedJob[] = []
     const query = encodeURIComponent(params.keywords || 'developpeur')
-    
+
     const headers = {
       'Authorization': `Bearer ${process.env.FRANCE_TRAVAIL_TOKEN}`,
       'Accept': 'application/json',
     }
-    
+
     for (let page = 0; page < (params.pages || 1); page++) {
       try {
         const url = `${this.baseUrl}?motsCles=${query}&page=${page}&perPage=20`
         const res = await this.fetch(url, { headers })
         const data = await res.json()
-        
+
         for (const item of data.resultats || []) {
           const parsed = parseLocation(item.lieuTravail?.[0]?.libVille || '')
           jobs.push({
@@ -29,7 +29,7 @@ export class FranceTravailAdapter extends BaseAdapter {
             company: item.entreprise?.nom || '',
             location: parsed.city,
             postalCode: parsed.postalCode,
-            url: item.OrigineUrl || '',
+            url: item.origineOffre?.urlOrigine || `https://candidat.pole-emploi.fr/offres/recherche/detail/${item.id}`,
             description: item.description?.substring(0, 1500),
             source: 'france_travail',
             postedAt: item.dateCreation,
