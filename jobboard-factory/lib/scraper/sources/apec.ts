@@ -3,19 +3,19 @@ import { BaseAdapter } from '../base/BaseAdapter'
 import { hashUrl, normalizeJobType, stripHtml, detectRemote } from '../utils'
 
 export class APECAdapter extends BaseAdapter {
-  name = 'apec'
-  baseUrl = 'https://api.apec.fr/api/cartographiesproformations'
-  
+  readonly source = 'apec' as const
+  readonly baseUrl = 'https://api.apec.fr/api/cartographiesproFormations'
+
   async scrape(params: ScrapeParams): Promise<ScrapedJob[]> {
     const jobs: ScrapedJob[] = []
     const query = encodeURIComponent(params.keywords || 'developpeur')
-    
+
     for (let page = 0; page < (params.pages || 1); page++) {
       try {
         const url = `${this.baseUrl}/offres?motsCles=${query}&page=${page}&nbFiltres=20`
         const res = await this.fetch(url)
         const data = await res.json()
-        
+
         for (const item of data.items || data.offres || []) {
           jobs.push({
             id: hashUrl(item.lienVersDetail || item.id),
