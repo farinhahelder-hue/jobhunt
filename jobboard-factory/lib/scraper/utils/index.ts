@@ -69,6 +69,22 @@ export function randomDelay(min = 1200, max = 3800): number {
   return Math.floor(Math.random() * (max - min) + min)
 }
 
+/**
+ * Deduplicate jobs by URL hash
+ */
+export function deduplicateJobs<T extends { url: string }>(jobs: T[]): T[] {
+  const seen = new Set<string>()
+  const unique: T[] = []
+  for (const job of jobs) {
+    const hash = hashUrl(job.url)
+    if (!seen.has(hash)) {
+      seen.add(hash)
+      unique.push(job)
+    }
+  }
+  return unique
+}
+
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
