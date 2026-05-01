@@ -3,21 +3,21 @@ import { BaseAdapter } from '../base/BaseAdapter'
 import { hashUrl, normalizeJobType, stripHtml, detectRemote } from '../utils'
 
 export class IndeedAdapter extends BaseAdapter {
-  name = 'indeed'
-  
+  readonly source = 'indeed' as const
+
   async scrape(params: ScrapeParams): Promise<ScrapedJob[]> {
     const jobs: ScrapedJob[] = []
     const query = encodeURIComponent(params.keywords || 'developer')
     const location = encodeURIComponent(params.location || 'France')
-    
+
     for (let page = 0; page < (params.pages || 1); page++) {
       const start = page * 10
-      const url = `https://fr.indeed.com/ jobs?q=${query}&l=${location}&start=${start}`
-      
+      const url = `https://fr.indeed.com/jobs?q=${query}&l=${location}&start=${start}`
+
       try {
         const html = await this.fetchHtml(url)
-        const matches = html.matchAll(/<a class="jobtitle[^>]*href="([^"]*)"[^>]*>([^<]*)<.*?<company>([^<]*)<.*?<location>([^<]*)</g)
-        
+        const matches = html.matchAll(/<a class="jobtitle[^>]*href="([^"]*)"[^>]*>([^<]*)<.*?company>([^<]*)<.*?location>([^<]*)</gs)
+
         for (const m of matches) {
           jobs.push({
             id: hashUrl(m[1]),
