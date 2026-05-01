@@ -1,19 +1,19 @@
 import { ScrapedJob, ScrapeParams } from '../../types'
 import { BaseAdapter } from '../base/BaseAdapter'
-import { hashUrl, normalizeJobType, getUserAgent } from '../utils'
+import { hashUrl, normalizeJobType } from '../utils'
 
 export class WTTJAdapter extends BaseAdapter {
-  name = 'wttj'
-  
+  readonly source = 'wttj' as const
+
   async scrape(params: ScrapeParams): Promise<ScrapedJob[]> {
     const jobs: ScrapedJob[] = []
     const query = encodeURIComponent(params.keywords || 'dev')
-    const url = `https://www.welcomejungle.com/wtj-api/v1/searches/articles?query=${query}&page=0&size=20`
-    
+    const url = `https://www.welcometothejungle.com/api/v1/jobs?query=${query}&page=0&per_page=20`
+
     try {
       const res = await this.fetch(url)
       const data = await res.json()
-      
+
       for (const item of data.results || []) {
         const job = item._source || item
         jobs.push({
