@@ -3,19 +3,19 @@ import { BaseAdapter } from '../base/BaseAdapter'
 import { hashUrl, normalizeJobType, stripHtml, detectRemote } from '../utils'
 
 export class CadremploiAdapter extends BaseAdapter {
-  name = 'cadremploi'
-  
+  readonly source = 'cadremploi' as const
+
   async scrape(params: ScrapeParams): Promise<ScrapedJob[]> {
     const jobs: ScrapedJob[] = []
     const query = encodeURIComponent(params.keywords || 'developpeur')
-    
+
     for (let page = 0; page < (params.pages || 1); page++) {
       try {
-        const url = `https://www.cadremploi.com/emploi/liste? keyword=${query}&page=${page}`
+        const url = `https://www.cadremploi.com/emploi/liste?keyword=${query}&page=${page}`
         const html = await this.fetchHtml(url)
-        
+
         // Look for JSON-LD
-        const jsonLd = html.match(/<script type="application/ld\+json">([^<]*)<\/script>/)
+        const jsonLd = html.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)
         if (jsonLd) {
           const data = JSON.parse(jsonLd[1])
           for (const item of data.itemListElement || []) {
@@ -29,6 +29,7 @@ export class CadremploiAdapter extends BaseAdapter {
               source: 'cadremploi',
               postedAt: item.datePosted,
               jobType: normalizeJobType(item.employmentType),
+              remote: detectRemote(item.description),
             })
           }
         }
