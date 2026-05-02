@@ -226,7 +226,7 @@ export async function coverLetterToDocx(text: string): Promise<Buffer> {
  * Save a buffer as a DOCX file (client-side)
  */
 export function saveDocx(buffer: Buffer, filename: string): void {
-  const blob = new Blob([buffer], {
+  const blob = new Blob([buffer as unknown as BlobPart], {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
   saveAs(blob, filename);
