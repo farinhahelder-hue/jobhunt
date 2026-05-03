@@ -40,6 +40,22 @@ export default function KanbanBoardPage() {
   )
 
   useEffect(() => {
+    const fetchApplications = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          job:jobs(*)
+        `)
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+
+      if (!error && data) {
+        setApplications(data)
+      }
+      setLoading(false)
+    }
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {

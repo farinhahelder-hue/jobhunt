@@ -46,6 +46,30 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
+    const fetchProfile = async (userId: string) => {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+
+      if (profileData) {
+        setProfile(profileData as UserProfile)
+      }
+
+      const { data: resumeData } = await supabase
+        .from('base_resumes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (resumeData) {
+        setResumes(resumeData as BaseResume[])
+      }
+
+      setLoading(false)
+    }
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {

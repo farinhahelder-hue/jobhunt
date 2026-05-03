@@ -67,21 +67,21 @@ export default function CVEditorPage() {
 
     // Listen for resume import events
     const handleResumeImported = (e: CustomEvent) => {
-      setData({
+      setData(prevData => ({
         personal_info: {
-          full_name: e.detail.full_name || data.personal_info?.full_name,
-          email: e.detail.email || data.personal_info?.email,
-          phone: e.detail.phone || data.personal_info?.phone,
-          location: e.detail.location || data.personal_info?.location,
-          linkedin_url: e.detail.linkedin_url || data.personal_info?.linkedin_url,
-          portfolio_url: e.detail.portfolio_url || data.personal_info?.portfolio_url,
+          full_name: e.detail.full_name || prevData.personal_info?.full_name,
+          email: e.detail.email || prevData.personal_info?.email,
+          phone: e.detail.phone || prevData.personal_info?.phone,
+          location: e.detail.location || prevData.personal_info?.location,
+          linkedin_url: e.detail.linkedin_url || prevData.personal_info?.linkedin_url,
+          portfolio_url: e.detail.portfolio_url || prevData.personal_info?.portfolio_url,
         },
-        summary: e.detail.resume_json?.summary || data.summary,
-        experiences: e.detail.resume_json?.experiences || data.experiences,
-        educations: e.detail.resume_json?.educations || data.educations,
-        skills: e.detail.resume_json?.skills || data.skills,
-        languages: e.detail.resume_json?.languages || data.languages,
-      });
+        summary: e.detail.resume_json?.summary || prevData.summary,
+        experiences: e.detail.resume_json?.experiences || prevData.experiences,
+        educations: e.detail.resume_json?.educations || prevData.educations,
+        skills: e.detail.resume_json?.skills || prevData.skills,
+        languages: e.detail.resume_json?.languages || prevData.languages,
+      }));
     };
 
     window.addEventListener('resume-imported', handleResumeImported as EventListener);
@@ -89,7 +89,7 @@ export default function CVEditorPage() {
   }, []);
 
   // Auto-save to Supabase
-  const saveProfile = async () => {
+  const saveProfile = React.useCallback(async () => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -122,7 +122,7 @@ export default function CVEditorPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [data]);
 
   // Auto-save debounced
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function CVEditorPage() {
       if (!isLoading) saveProfile();
     }, 1000);
     return () => clearTimeout(timer);
-  }, [data]);
+  }, [data, isLoading, saveProfile]);
 
   const updatePersonalInfo = (field: string, value: string) => {
     setData(prev => ({

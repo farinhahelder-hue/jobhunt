@@ -143,7 +143,7 @@ export function CVSectionEditor({
           </SortableContext>
         </DndContext>
       ) : (
-        <p className="text-sm text-gray-400 italic">No items yet. Click "Add" to add one.</p>
+        <p className="text-sm text-gray-400 italic">No items yet. Click &quot;Add&quot; to add one.</p>
       )}
     </div>
   );
