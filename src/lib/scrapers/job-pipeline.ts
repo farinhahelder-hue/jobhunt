@@ -1,5 +1,11 @@
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
+import { createHash } from 'crypto'
+
+// Hash URL using SHA-256 for collision resistance
+function hashUrl(url: string): string {
+  return createHash('sha256').update(url).digest('hex').substring(0, 32)
+}
 
 // TypeScript Enum Equivalent to Prisma ScraperSource
 export enum ScraperSource {
@@ -68,7 +74,8 @@ export function deduplicateJobs(jobs: ScrapedJobInput[]): ScrapedJobInput[] {
 }
 
 export async function scoreJobsAgainstCV(jobs: ScrapedJobInput[], userId: string): Promise<ScrapedJobInput[]> {
-  return jobs.map(j => ({ ...j, matchScore: j.matchScore !== undefined ? j.matchScore : Math.random() }))
+  // Use 0.5 as default score when not provided (deterministic)
+  return jobs.map(j => ({ ...j, matchScore: j.matchScore !== undefined ? j.matchScore : 0.5 }))
 }
 
 // Filtre les jobs par score minimum (0.65 par défaut)
@@ -95,7 +102,7 @@ export async function runJobScrapingPipeline(userId: string, minScore = 0.65): P
     }
   })
 
-  // Collecte csak a sikeres eredményeket
+  // Collect only successful results
   const allJobs = results.flatMap(r => r.status === 'fulfilled' ? r.value : [])
 
   // Validate payloads with Zod before further processing
@@ -121,7 +128,7 @@ export async function runJobScrapingPipeline(userId: string, minScore = 0.65): P
         title: job.title,
         company: job.company,
         url: job.url,
-        url_hash: btoa(job.url).substring(0, 64),
+        url_hash: hashUrl(job.url),
         description_text: job.descriptionRaw,
         source: job.source,
         scraped_at: new Date().toISOString()
