@@ -30,8 +30,9 @@ export default function LoginPage() {
 
       if (error) throw error
       router.push('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign in'
+      setError(message)
     } finally {
       setIsLoading(false)
     }
@@ -45,13 +46,14 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       })
 
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign in with Google'
+      setError(message)
       setIsLoading(false)
     }
   }
@@ -65,14 +67,15 @@ export default function LoginPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       })
 
       if (error) throw error
       setError('Check your email for the confirmation link!')
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign up')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign up'
+      setError(message)
     } finally {
       setIsLoading(false)
     }
