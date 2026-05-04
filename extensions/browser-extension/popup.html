@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; width: 300px; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 12px; margin-bottom: 4px; color: #666; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    button { width: 100%; padding: 10px; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    button:hover { background: #16a34a; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .status { margin-top: 12px; font-size: 12px; padding: 8px; border-radius: 4px; }
+    .success { background: #dcfce7; color: #166534; }
+    .error { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <h2>📋 JobHunt Web Clipper</h2>
+  
+  <div class="field">
+    <label>Titre du poste</label>
+    <input type="text" id="jobTitle" placeholder="Software Engineer...">
+  </div>
+  
+  <div class="field">
+    <label>Entreprise</label>
+    <input type="text" id="company" placeholder="Company name...">
+  </div>
+  
+  <div class="field">
+    <label>Description</label>
+    <textarea id="description" rows="4" placeholder="Job description..."></textarea>
+  </div>
+  
+  <button id="saveBtn">Sauvegarder → JobHunt</button>
+  <div id="status"></div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
