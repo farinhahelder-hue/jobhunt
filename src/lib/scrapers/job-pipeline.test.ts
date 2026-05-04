@@ -21,6 +21,9 @@ vi.mock('@/utils/supabase/client', () => ({
 }))
 
 describe('job-pipeline', () => {
+  // Import hashUrl from job-pipeline for testing
+  // Note: we test through the public API indirectly
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -83,7 +86,7 @@ describe('job-pipeline', () => {
   })
 
   describe('scoreJobsAgainstCV', () => {
-    it('should assign matchScore to jobs without score', async () => {
+    it('should assign 0.5 as default matchScore when undefined', async () => {
       const jobs: ScrapedJobInput[] = [
         { url: 'https://example.com/1', title: 'Job 1', company: 'Corp', descriptionRaw: 'desc', source: 'LINKEDIN' as any },
         { url: 'https://example.com/2', title: 'Job 2', company: 'Corp', descriptionRaw: 'desc', source: 'LINKEDIN' as any, matchScore: 0.9 },
@@ -92,8 +95,7 @@ describe('job-pipeline', () => {
       const scored = await scoreJobsAgainstCV(jobs, 'user-1')
 
       expect(scored).toHaveLength(2)
-      expect(scored[0].matchScore).toBeDefined()
-      expect(typeof scored[0].matchScore).toBe('number')
+      expect(scored[0].matchScore).toBe(0.5) // default is now constant 0.5
       expect(scored[1].matchScore).toBe(0.9) // preserved
     })
   })
