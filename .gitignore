@@ -9,12 +9,16 @@ out/
 build/
 dist/
 
-# Environment
+# Environment — NEVER commit these
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
 
 # Debug
 npm-debug.log*
@@ -36,4 +40,5 @@ coverage/
 
 # Misc
 *.log
-*.tsbuildinfo.env.local
+next-env.d.ts
+*.tsbuildinfo
