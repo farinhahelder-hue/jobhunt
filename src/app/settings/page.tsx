@@ -1,21 +1,69 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2 } from 'lucide-react'
+import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2, Mail, Bell } from 'lucide-react'
 import { useTheme } from 'next-themes'
+
+interface UserPreferences {
+  email_notifications: boolean
+  notify_score_threshold: number
+  notify_frequency: 'daily' | 'weekly'
+}
 
 export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [apiKey, setApiKey] = useState('')
+  const [preferences, setPreferences] = useState<UserPreferences>({
+    email_notifications: true,
+    notify_score_threshold: 7,
+    notify_frequency: 'daily',
+  })
+  const [user, setUser] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
   const { theme, setTheme } = useTheme()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUser(user)
+        // Load preferences
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('notification_preferences')
+          .eq('user_id', user.id)
+          .single()
+        if (data?.notification_preferences) {
+          setPreferences({ ...preferences, ...data.notification_preferences })
+        }
+      }
+    }
+    getUser()
+  }, [])
+
+  const handleSavePreferences = async () => {
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ notification_preferences: preferences })
+        .eq('user_id', user.id)
+      if (error) throw error
+      alert('Preferences saved!')
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleSaveApiKey = async () => {
     setSaving(true)
@@ -117,6 +165,62 @@ export default function SettingsPage() {
                     System
                   </Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Email Notifications */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" /> Email Notifications
+              </CardTitle>
+              <CardDescription>Get notified about new high-score jobs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Enable Notifications</p>
+                    <p className="text-sm text-muted-foreground">Receive emails when new jobs match your criteria</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={preferences.email_notifications}
+                    onChange={(e) => setPreferences({ ...preferences, email_notifications: e.target.checked })}
+                    className="h-5 w-5"
+                  />
+                </div>
+                {preferences.email_notifications && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Score Threshold</label>
+                      <p className="text-xs text-muted-foreground">Only notify for jobs with score ≥ X</p>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={preferences.notify_score_threshold}
+                        onChange={(e) => setPreferences({ ...preferences, notify_score_threshold: parseInt(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Frequency</label>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={preferences.notify_frequency}
+                        onChange={(e) => setPreferences({ ...preferences, notify_frequency: e.target.value as 'daily' | 'weekly' })}
+                      >
+                        <option value="daily">Daily (8:30 UTC)</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    <Button onClick={handleSavePreferences} disabled={saving} className="w-full">
+                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Preferences
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
