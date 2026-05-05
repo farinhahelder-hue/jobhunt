@@ -9,36 +9,47 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 const serverSupabase = createSupabaseClient(supabaseUrl, serviceKey)
 
-// Job sources to scrape
+// Job sources to scrape - multiple tags for volume
 const SOURCES = [
-  {
-    name: 'weworkremotely',
-    url: 'https://weworkremotely.com/remote-jobs.rss',
-    type: 'rss',
-  },
-  {
-    name: 'remoteok',
-    url: 'https://remoteok.com/api?tags=customer-support',
-    type: 'json',
-  },
-  {
-    name: 'remotive',
-    url: 'https://remotive.com/api/remote-jobs?category=customer-support',
-    type: 'json',
-  },
+  // We Work Remotely
+  { name: 'weworkremotely', url: 'https://weworkremotely.com/remote-jobs.rss', type: 'rss' },
+  // RemoteOK - multiple tags
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=react', type: 'json' },
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=node', type: 'json' },
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=python', type: 'json' },
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=vue', type: 'json' },
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=javascript', type: 'json' },
+  { name: 'remoteok', url: 'https://remoteok.com/api?tag=marketing', type: 'json' },
+  // Remotive - multiple categories  
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=software-development', type: 'json' },
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=customer-service', type: 'json' },
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=marketing', type: 'json' },
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=business', type: 'json' },
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=design', type: 'json' },
+  { name: 'remotive', url: 'https://remotive.com/api/remote-jobs?category=product', type: 'json' },
 ]
 
-// Keywords to include (case insensitive)
+// Keywords to include - wider net for more volume
 const INCLUDE_KEYWORDS = [
   'customer support',
   'customer success',
-  'customer care',
-  'support client',
   'customer experience',
+  'developer',
+  'engineer',
+  'marketing',
+  'sales',
+  'designer',
+  'product',
+  'data',
+  'analytics',
+  'writer',
+  'manager',
+  'consultant',
+  'specialist',
 ]
 
 // Keywords to exclude (case insensitive)
-const EXCLUDE_KEYWORDS = ['onsite', 'in-office', 'on-site', 'presentiel obligatoire']
+const EXCLUDE_KEYWORDS = ['onsite', 'in-office', 'on-site', 'presentiel obligatoire', 'hybrid-3', 'hybrid-2']
 
 // Scoring function based on job description
 function calculateScore(job: { title: string; description: string; remote_type?: string; published_at?: string }) {
@@ -238,23 +249,31 @@ export async function GET() {
       source: string
     }> = []
 
-    await Promise.allSettled([
-      parseWWR(SOURCES[0].url).then((jobs) => {
-        filterJobs(jobs).forEach((job) => {
-          allJobs.push({ ...job, score: calculateScore(job), source: 'weworkremotely' })
+    // Loop through all sources
+    const scrapePromises = SOURCES.map((source) => {
+      if (source.name === 'weworkremotely') {
+        return parseWWR(source.url).then((jobs) => {
+          filterJobs(jobs).forEach((job) => {
+            allJobs.push({ ...job, score: calculateScore(job), source: source.name })
+          })
         })
-      }),
-      parseRemoteOK(SOURCES[1].url).then((jobs) => {
-        filterJobs(jobs).forEach((job) => {
-          allJobs.push({ ...job, score: calculateScore(job), source: 'remoteok' })
+      } else if (source.name === 'remoteok') {
+        return parseRemoteOK(source.url).then((jobs) => {
+          filterJobs(jobs).forEach((job) => {
+            allJobs.push({ ...job, score: calculateScore(job), source: source.name })
+          })
         })
-      }),
-      parseRemotive(SOURCES[2].url).then((jobs) => {
-        filterJobs(jobs).forEach((job) => {
-          allJobs.push({ ...job, score: calculateScore(job), source: 'remotive' })
+      } else if (source.name === 'remotive') {
+        return parseRemotive(source.url).then((jobs) => {
+          filterJobs(jobs).forEach((job) => {
+            allJobs.push({ ...job, score: calculateScore(job), source: source.name })
+          })
         })
-      }),
-    ])
+      }
+      return Promise.resolve()
+    })
+
+    await Promise.allSettled(scrapePromises)
 
     // Deduplicate
     const seen = new Set<string>()
