@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 interface Job {
@@ -17,6 +19,30 @@ interface Job {
   summary: string
   score: number
   source: string
+}
+
+// Simple Modal component
+function Modal({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-background p-6 rounded-lg shadow-lg max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1 hover:bg-muted rounded">
+          <X className="h-4 w-4" />
+        </button>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 function getFreshnessBadge(publishedAt: string) {
@@ -37,6 +63,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastScrape, setLastScrape] = useState<string | null>(null)
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [jobApplications, setJobApplications] = useState<any[]>([])
   const supabase = createClient()
 
   // Fetch jobs from Supabase
@@ -152,7 +180,7 @@ export default function JobsPage() {
             </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {topJobs.map((job, i) => (
-                <Card key={i} className="border-green-500/50">
+                <Card key={i} className="border-green-500/50 cursor-pointer hover:border-green-500 transition-colors" onClick={() => setSelectedJob(job)}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{job.title}</CardTitle>
@@ -198,7 +226,7 @@ export default function JobsPage() {
             </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {watchJobs.map((job, i) => (
-                <Card key={i}>
+                <Card key={i} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setSelectedJob(job)}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{job.title}</CardTitle>
@@ -271,6 +299,46 @@ export default function JobsPage() {
             Last scraped: {new Date(lastScrape).toLocaleString()}
           </footer>
         )}
+
+        {/* Job Details Modal */}
+        <Modal open={!!selectedJob} onClose={() => setSelectedJob(null)}>
+          {selectedJob && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">{selectedJob.title}</h2>
+              <p className="font-medium text-primary">{selectedJob.company}</p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Globe className="h-4 w-4" />
+                {selectedJob.location} · {selectedJob.remote_type}
+              </div>
+              <p className="text-sm">{selectedJob.summary}</p>
+              <div className="flex justify-between items-center">
+                <span className={`text-2xl ${getScoreColor(selectedJob.score)}`}>
+                  Score: {selectedJob.score}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  Source: {selectedJob.source}
+                </span>
+              </div>
+              <div className="flex gap-2 pt-4">
+                {selectedJob.id && (
+                  <Button onClick={() => handleSave(selectedJob)} className="flex-1">
+                    <Bookmark className="h-4 w-4 mr-2" /> Save to Applications
+                  </Button>
+                )}
+                <a
+                  href={selectedJob.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                >
+                  <Button className="w-full">
+                    Apply <ExternalLink className="h-4 w-4 ml-2" />
+                  </Button>
+                </a>
+              </div>
+            </div>
+          )}
+        </Modal>
       </main>
     </div>
   )
