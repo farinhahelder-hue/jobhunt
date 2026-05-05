@@ -64,6 +64,8 @@ export default function JobsPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastScrape, setLastScrape] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [atsScore, setAtsScore] = useState<number | null>(null)
+  const [atsLoading, setAtsLoading] = useState(false)
   const [jobApplications, setJobApplications] = useState<any[]>([])
   const supabase = createClient()
 
@@ -126,6 +128,27 @@ export default function JobsPage() {
       console.error('Save error:', err)
     }
   }
+
+  // Calculate ATS score for selected job
+  const handleAtsScore = async () => {
+    if (!selectedJob?.id) return
+    setAtsLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/login'; return }
+      const res = await fetch('/api/ats/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: selectedJob.id, user_id: user.id }),
+      })
+      const data = await res.json()
+      if (data.success) setAtsScore(data.ats_score)
+      else alert(data.error || 'Failed to get ATS score')
+    } catch (err) { console.error('ATS error:', err) }
+    finally { setAtsLoading(false) }
+  }
+
+  const handleCloseModal = () => { setSelectedJob(null); setAtsScore(null) }
 
   useEffect(() => {
     fetchJobs()
@@ -301,7 +324,7 @@ export default function JobsPage() {
         )}
 
         {/* Job Details Modal */}
-        <Modal open={!!selectedJob} onClose={() => setSelectedJob(null)}>
+        <Modal open={!!selectedJob} onClose={handleCloseModal}>
           {selectedJob && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold">{selectedJob.title}</h2>
@@ -315,10 +338,26 @@ export default function JobsPage() {
                 <span className={`text-2xl ${getScoreColor(selectedJob.score)}`}>
                   Score: {selectedJob.score}
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  Source: {selectedJob.source}
-                </span>
+                {atsScore !== null && (
+                  <span className={`text-lg font-bold ${atsScore >= 70 ? 'text-green-500' : atsScore >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
+                    ATS: {atsScore}/100
+                  </span>
+                )}
               </div>
+
+              {/* ATS Score Button */}
+              {selectedJob.id && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleAtsScore} 
+                  disabled={atsLoading}
+                  className="w-full"
+                >
+                  {atsLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  {atsLoading ? 'Calculating...' : atsScore !== null ? 'Recalculate ATS Score' : 'Get ATS Score vs My Resume'}
+                </Button>
+              )}
+
               <div className="flex gap-2 pt-4">
                 {selectedJob.id && (
                   <Button onClick={() => handleSave(selectedJob)} className="flex-1">

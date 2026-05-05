@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2, Mail, Bell } from 'lucide-react'
+import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2, Mail, Bell, FileText, Upload, Trash2, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 interface UserPreferences {
@@ -16,9 +16,20 @@ interface UserPreferences {
   notify_frequency: 'daily' | 'weekly'
 }
 
+interface BaseResume {
+  id: number
+  file_name: string
+  file_url: string
+  content: string
+  word_count: number
+  created_at: string
+}
+
 export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [apiKey, setApiKey] = useState('')
+  const [uploadingResume, setUploadingResume] = useState(false)
+  const [resume, setResume] = useState<BaseResume | null>(null)
   const [preferences, setPreferences] = useState<UserPreferences>({
     email_notifications: true,
     notify_score_threshold: 7,
@@ -43,6 +54,18 @@ export default function SettingsPage() {
         if (data?.notification_preferences) {
           setPreferences({ ...preferences, ...data.notification_preferences })
         }
+        
+        // Load user's resume
+        const { data: resumeData } = await supabase
+          .from('base_resumes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+        if (resumeData) {
+          setResume(resumeData)
+        }
       }
     }
     getUser()
@@ -62,6 +85,83 @@ export default function SettingsPage() {
       alert('Failed to save')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please upload a PDF or DOCX file')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File must be less than 5MB')
+      return
+    }
+
+    setUploadingResume(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const filePath = `${user.id}/base_resume.${ext}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('resumes')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath)
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('fileName', file.name)
+      formData.append('userId', user.id)
+      formData.append('fileUrl', publicUrl)
+
+      const parseRes = await fetch('/api/resume/parse', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const parseData = await parseRes.json()
+      
+      if (parseData.success) {
+        setResume(parseData.resume)
+        alert('Resume uploaded and parsed!')
+      } else {
+        alert('Upload succeeded but parsing failed: ' + parseData.error)
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to upload resume')
+    } finally {
+      setUploadingResume(false)
+    }
+  }
+
+  const handleDeleteResume = async () => {
+    if (!resume || !user) return
+    if (!confirm('Delete your resume?')) return
+
+    try {
+      await supabase.storage
+        .from('resumes')
+        .remove([`${user.id}/base_resume.${resume.file_name.split('.').pop()}`])
+
+      await supabase
+        .from('base_resumes')
+        .delete()
+        .eq('id', resume.id)
+
+      setResume(null)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to delete')
     }
   }
 
@@ -166,6 +266,82 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Resume Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" /> My Resume
+              </CardTitle>
+              <CardDescription>Upload your CV for ATS scoring</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resume ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-primary" />
+                      <div>
+                        <p className="font-medium">{resume.file_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {resume.word_count} words · Uploaded {new Date(resume.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Check className="h-5 w-5 text-green-500" />
+                      <Button variant="outline" size="sm" onClick={handleDeleteResume}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Your resume is ready for ATS scoring on job applications.
+                  </p>
+                  <label className="block">
+                    <Button variant="outline" className="w-full" asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" /> Replace Resume
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept=".pdf,.docx"
+                      className="hidden"
+                      onChange={handleResumeUpload}
+                      disabled={uploadingResume}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <label className="block cursor-pointer">
+                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+                      {uploadingResume ? (
+                        <>
+                          <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                          <p>Uploading and parsing...</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="font-medium">Drop your resume here</p>
+                          <p className="text-sm text-muted-foreground">PDF or DOCX, max 5MB</p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept=".pdf,.docx"
+                      className="hidden"
+                      onChange={handleResumeUpload}
+                      disabled={uploadingResume}
+                    />
+                  </label>
+                </div>
+              )}
             </CardContent>
           </Card>
 
