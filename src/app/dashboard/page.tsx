@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 import { 
   Briefcase, 
   TrendingUp, 
@@ -32,7 +33,8 @@ export default function DashboardPage() {
     offers: 0,
     avg_ats_score: 0,
   })
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
@@ -46,6 +48,30 @@ export default function DashboardPage() {
         return
       }
       setUser(user)
+
+      // Get user profile for personalized message and onboarding check
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single()
+
+      // Extract first name from user_metadata or profile
+      const firstName = profile?.full_name 
+        ? profile.full_name.split(' ')[0]
+        : user.user_metadata?.full_name 
+          ? (user.user_metadata.full_name as string).split(' ')[0]
+          : user.user_metadata?.name 
+            ? (user.user_metadata.name as string).split(' ')[0]
+            : null
+      
+      setUserName(firstName || '')
+
+      // If no profile or no full_name, redirect to onboarding
+      if (!profile?.full_name) {
+        router.push('/profile?onboarding=true')
+        return
+      }
 
       // Get stats
       const { data: applications } = await supabase
@@ -184,7 +210,9 @@ export default function DashboardPage() {
         <div className="container mx-auto p-6">
           {/* Welcome Header */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold">Welcome back!</h1>
+            <h1 className="text-2xl font-bold">
+              {userName ? `Welcome back, ${userName}!` : 'Welcome back!'}
+            </h1>
             <p className="text-muted-foreground">
               Here&apos;s an overview of your job search
             </p>
