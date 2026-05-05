@@ -300,13 +300,12 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground">
                     Your resume is ready for ATS scoring on job applications.
                   </p>
-                  <label className="block">
-                    <Button variant="outline" className="w-full" asChild>
-                      <span>
-                        <Upload className="h-4 w-4 mr-2" /> Replace Resume
-                      </span>
-                    </Button>
+                  <label className="block" htmlFor="resume-input">
+                    <div className="cursor-pointer flex items-center justify-center w-full p-2 border border-dashed rounded hover:bg-muted transition-colors">
+                      <Upload className="h-4 w-4 mr-2" /> Replace Resume
+                    </div>
                     <input
+                      id="resume-input"
                       type="file"
                       accept=".pdf,.docx"
                       className="hidden"

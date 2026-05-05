@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import pdf from 'pdf-parse'
+import * as pdf from 'pdf-parse'
 import mammoth from 'mammoth'
 
 // Force dynamic rendering
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const ext = fileName.split('.').pop()?.toLowerCase()
 
     if (ext === 'pdf') {
-      const result = await pdf(buffer)
+      const result = await pdf.default(buffer as any)
       content = result.text
     } else if (ext === 'docx') {
       const result = await mammoth.extractRawText({ arrayBuffer: buffer })
