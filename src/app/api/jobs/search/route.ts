@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Force dynamic rendering - this route depends on request.url
+export const dynamic = 'force-dynamic'
+
 // URL du Python scraper sur Render
 const SCRAPER_URL = process.env.SCRAPER_URL || 'https://jobhunt-y03c.onrender.com'
 
