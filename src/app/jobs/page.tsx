@@ -66,6 +66,8 @@ export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [atsScore, setAtsScore] = useState<number | null>(null)
   const [atsLoading, setAtsLoading] = useState(false)
+  const [coverLetter, setCoverLetter] = useState<string | null>(null)
+  const [coverLetterLoading, setCoverLetterLoading] = useState(false)
   const [jobApplications, setJobApplications] = useState<any[]>([])
   const supabase = createClient()
 
@@ -148,7 +150,26 @@ export default function JobsPage() {
     finally { setAtsLoading(false) }
   }
 
-  const handleCloseModal = () => { setSelectedJob(null); setAtsScore(null) }
+  const handleCloseModal = () => { setSelectedJob(null); setAtsScore(null); setCoverLetter(null) }
+
+  // Generate cover letter
+  const handleCoverLetter = async () => {
+    if (!selectedJob?.id) return
+    setCoverLetterLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/login'; return }
+      const res = await fetch('/api/cover-letter/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: selectedJob.id, user_id: user.id }),
+      })
+      const data = await res.json()
+      if (data.success) setCoverLetter(data.cover_letter)
+      else alert(data.error || 'Failed to generate cover letter')
+    } catch (err) { console.error('Cover letter error:', err) }
+    finally { setCoverLetterLoading(false) }
+  }
 
   useEffect(() => {
     fetchJobs()
@@ -356,6 +377,33 @@ export default function JobsPage() {
                   {atsLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                   {atsLoading ? 'Calculating...' : atsScore !== null ? 'Recalculate ATS Score' : 'Get ATS Score vs My Resume'}
                 </Button>
+              )}
+
+              {/* Cover Letter Button */}
+              {selectedJob.id && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleCoverLetter} 
+                  disabled={coverLetterLoading}
+                  className="w-full mt-2"
+                >
+                  {coverLetterLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  {coverLetterLoading ? 'Generating...' : coverLetter ? 'Regenerate Cover Letter' : 'Generate Cover Letter'}
+                </Button>
+              )}
+
+              {/* Cover Letter Display */}
+              {coverLetter && (
+                <div className="mt-4 p-4 bg-muted rounded-lg max-h-60 overflow-y-auto">
+                  <p className="text-sm whitespace-pre-wrap">{coverLetter}</p>
+                  <Button 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => navigator.clipboard.writeText(coverLetter)}
+                  >
+                    Copy to Clipboard
+                  </Button>
+                </div>
               )}
 
               <div className="flex gap-2 pt-4">
