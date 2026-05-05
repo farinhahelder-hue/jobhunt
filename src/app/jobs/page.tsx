@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Briefcase, RefreshCw, ExternalLink, Globe, Clock } from 'lucide-react'
+import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
 
 interface Job {
+  id?: number
   title: string
   company: string
   location: string
@@ -35,16 +37,18 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastScrape, setLastScrape] = useState<string | null>(null)
+  const supabase = createClient()
 
+  // Fetch jobs from Supabase
   const fetchJobs = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/scrape/direct')
+      const res = await fetch('/api/jobs/list')
       const data = await res.json()
       if (data.success) {
         setJobs(data.jobs)
-        setLastScrape(data.scraped_at)
+        setLastScrape(data.fetched_at)
       } else {
         setError(data.error || 'Failed to fetch jobs')
       }
@@ -52,6 +56,46 @@ export default function JobsPage() {
       setError('Network error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Refresh: trigger scrape then reload
+  const handleRefresh = async () => {
+    setLoading(true)
+    try {
+      await fetch('/api/scrape/direct', { method: 'POST' })
+      await fetchJobs()
+    } catch (err) {
+      setError('Refresh failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Save job to applications
+  const handleSave = async (job: Job) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        // Not logged in - redirect to login
+        window.location.href = '/login'
+        return
+      }
+      
+      const { error } = await supabase.from('applications').upsert({
+        user_id: user.id,
+        job_id: job.id,
+        status: 'saved',
+        created_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,job_id' })
+      
+      if (error) {
+        console.error('Save error:', error)
+      } else {
+        alert('Saved! Go to /applications to track this job.')
+      }
+    } catch (err) {
+      console.error('Save error:', err)
     }
   }
 
@@ -126,11 +170,18 @@ export default function JobsPage() {
                     <p className="text-sm line-clamp-2">{job.summary}</p>
                     <div className="flex justify-between items-center pt-2">
                       {getFreshnessBadge(job.published_at)}
-                      <a href={job.url} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm">
-                          Apply <ExternalLink className="h-3 w-3 ml-2" />
-                        </Button>
-                      </a>
+                      <div className="flex gap-2">
+                        {job.id && (
+                          <Button size="sm" variant="outline" onClick={() => handleSave(job)}>
+                            <Bookmark className="h-3 w-3 mr-1" /> Save
+                          </Button>
+                        )}
+                        <a href={job.url} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm">
+                            Apply <ExternalLink className="h-3 w-3 ml-2" />
+                          </Button>
+                        </a>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

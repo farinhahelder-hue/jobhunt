@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 // Force dynamic rendering for cron job
 export const dynamic = 'force-dynamic'
+
+// Server-side client with service role key for writing to DB
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const serverSupabase = createSupabaseClient(supabaseUrl, serviceKey)
 
 // Job sources to scrape
 const SOURCES = [
@@ -260,6 +266,31 @@ export async function GET() {
 
     uniqueJobs.sort((a, b) => b.score - a.score)
     const limitedJobs = uniqueJobs.slice(0, 50)
+
+    // Upsert jobs to Supabase (using service role key)
+    if (serviceKey && supabaseUrl) {
+      const jobsToInsert = limitedJobs.map((job) => ({
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        remote_type: job.remote_type,
+        published_at: job.published_at,
+        url: job.url,
+        description: job.summary,
+        score: job.score,
+        source: job.source,
+        created_at: new Date().toISOString(),
+      }))
+
+      // Upsert each job (onConflict: url)
+      for (const job of jobsToInsert) {
+        try {
+          await serverSupabase.from('jobs').upsert(job, { onConflict: 'url' })
+        } catch (err) {
+          console.error('Failed to upsert job:', job.url, err)
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
