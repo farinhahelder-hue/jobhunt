@@ -16,8 +16,30 @@ import {
   Plus,
   LogOut,
   FileText,
-  Menu
+  Menu,
+  Target,
+  Users,
+  BarChart3,
+  PieChart
 } from 'lucide-react'
+
+interface AnalyticsData {
+  total_applications: number
+  funnel: {
+    wishlist: number
+    saved: number
+    applied: number
+    interviewing: number
+    offer: number
+    rejected: number
+  }
+  response_rate: number
+  responses_received: number
+  by_source: Record<string, number>
+  average_ats_score: number | null
+  applications_scored: number
+  timeline_30_days: Record<string, { total: number; applied: number }>
+}
 
 interface DashboardStats {
   total_applied: number
@@ -27,12 +49,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>({
-    total_applied: 0,
-    interviews: 0,
-    offers: 0,
-    avg_ats_score: 0,
-  })
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -73,32 +90,22 @@ export default function DashboardPage() {
         return
       }
 
-      // Get stats
-      const { data: applications } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('user_id', user.id)
-
-      if (applications) {
-        const applied = applications.filter(a => a.kanban_column !== 'saved').length
-        const interview = applications.filter(a => a.kanban_column === 'interview').length
-        const offer = applications.filter(a => a.kanban_column === 'offer').length
-        
-        let totalScore = 0
-        let scoreCount = 0
-        applications.forEach(a => {
-          if (a.ats_score?.overall) {
-            totalScore += a.ats_score.overall
-            scoreCount++
+      // Get analytics from API
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          const response = await fetch('/api/analytics/stats', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          })
+          if (response.ok) {
+            const data = await response.json()
+            setAnalytics(data)
           }
-        })
-
-        setStats({
-          total_applied: applied,
-          interviews: interview,
-          offers: offer,
-          avg_ats_score: scoreCount > 0 ? Math.round(totalScore / scoreCount) : 0,
-        })
+        }
+      } catch (e) {
+        console.error('Failed to fetch analytics:', e)
       }
 
       setLoading(false)
@@ -218,17 +225,30 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats Grid - Analytics Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Applied</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.total_applied}</div>
+                <div className="text-2xl font-bold">{analytics?.total_applications || 0}</div>
                 <p className="text-xs text-muted-foreground">
-                  Applications submitted
+                  Across all stages
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics?.response_rate || 0}%</div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics?.responses_received || 0} responses received
                 </p>
               </CardContent>
             </Card>
@@ -239,22 +259,9 @@ export default function DashboardPage() {
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.interviews}</div>
+                <div className="text-2xl font-bold">{analytics?.funnel?.interviewing || 0}</div>
                 <p className="text-xs text-muted-foreground">
                   Interview scheduled
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Offers</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.offers}</div>
-                <p className="text-xs text-muted-foreground">
-                  Job offers received
                 </p>
               </CardContent>
             </Card>
@@ -265,10 +272,87 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.avg_ats_score}%</div>
+                <div className="text-2xl font-bold">{analytics?.average_ats_score || 0}%</div>
                 <p className="text-xs text-muted-foreground">
-                  Average resume score
+                  {analytics?.applications_scored || 0} resumes scored
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Funnel Visualization */}
+          <div className="grid gap-4 md:grid-cols-2 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Application Funnel
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Wishlist</span>
+                    <span className="font-medium">{analytics?.funnel?.wishlist || 0}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${((analytics?.funnel?.wishlist || 0) / Math.max(analytics?.total_applications || 1, 1)) * 100}%` }}></div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Saved</span>
+                    <span className="font-medium">{analytics?.funnel?.saved || 0}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${((analytics?.funnel?.saved || 0) / Math.max(analytics?.total_applications || 1, 1)) * 100}%` }}></div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Applied</span>
+                    <span className="font-medium">{analytics?.funnel?.applied || 0}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${((analytics?.funnel?.applied || 0) / Math.max(analytics?.total_applications || 1, 1)) * 100}%` }}></div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Interviewing</span>
+                    <span className="font-medium">{analytics?.funnel?.interviewing || 0}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${((analytics?.funnel?.interviewing || 0) / Math.max(analytics?.total_applications || 1, 1)) * 100}%` }}></div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Offer</span>
+                    <span className="font-medium">{analytics?.funnel?.offer || 0}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="bg-green-500 h-2 rounded-full" style={{ width: `${((analytics?.funnel?.offer || 0) / Math.max(analytics?.total_applications || 1, 1)) * 100}%` }}></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  By Source
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(analytics?.by_source || {}).map(([source, count]) => (
+                    <div key={source} className="flex items-center justify-between">
+                      <span className="text-sm capitalize">{source}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  ))}
+                  {(!analytics?.by_source || Object.keys(analytics.by_source).length === 0) && (
+                    <p className="text-sm text-muted-foreground">No data yet</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
