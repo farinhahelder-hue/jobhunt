@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2, X } from 'lucide-react'
+import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2, X, Filter } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 interface Job {
@@ -69,6 +69,11 @@ export default function JobsPage() {
   const [coverLetter, setCoverLetter] = useState<string | null>(null)
   const [coverLetterLoading, setCoverLetterLoading] = useState(false)
   const [jobApplications, setJobApplications] = useState<any[]>([])
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [minScore, setMinScore] = useState<number>(5)
+  const [selectedSource, setSelectedSource] = useState<string>('all')
+  const [selectedRemote, setSelectedRemote] = useState<string>('all')
+  const [selectedDays, setSelectedDays] = useState<number>(7)
   const supabase = createClient()
 
   // Fetch jobs from Supabase
@@ -175,9 +180,38 @@ export default function JobsPage() {
     fetchJobs()
   }, [])
 
-  const topJobs = jobs.filter((j) => j.score >= 7).slice(0, 3)
-  const watchJobs = jobs.filter((j) => j.score >= 5 && j.score < 7).slice(0, 5)
-  const otherJobs = jobs.filter((j) => j.score < 5)
+  // Filter jobs based on filters
+  const filteredJobs = useMemo(() => {
+    const now = new Date()
+    const daysAgo = new Date(now.getTime() - selectedDays * 24 * 60 * 60 * 1000)
+    
+    return jobs.filter((job) => {
+      // Score filter
+      if (job.score < minScore) return false
+      
+      // Source filter
+      if (selectedSource !== 'all' && job.source !== selectedSource) return false
+      
+      // Remote type filter
+      if (selectedRemote !== 'all') {
+        const isRemote = job.remote_type?.toLowerCase().includes('remote')
+        if (selectedRemote === 'remote' && !isRemote) return false
+        if (selectedRemote === 'onsite' && isRemote) return false
+      }
+      
+      // Date filter
+      if (job.published_at) {
+        const published = new Date(job.published_at)
+        if (published < daysAgo) return false
+      }
+      
+      return true
+    })
+  }, [jobs, minScore, selectedSource, selectedRemote, selectedDays])
+
+  const topJobs = filteredJobs.filter((j) => j.score >= 7).slice(0, 3)
+  const watchJobs = filteredJobs.filter((j) => j.score >= 5 && j.score < 7).slice(0, 5)
+  const otherJobs = filteredJobs.filter((j) => j.score < 5)
 
   if (loading) {
     return (
@@ -206,7 +240,81 @@ export default function JobsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          <Button 
+            variant={filtersOpen ? 'default' : 'outline'} 
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+            {(minScore > 5 || selectedSource !== 'all' || selectedRemote !== 'all' || selectedDays < 7) && (
+              <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                {[minScore > 5, selectedSource !== 'all', selectedRemote !== 'all', selectedDays < 7].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
         </div>
+
+        {/* Filters Panel */}
+        {filtersOpen && (
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Min Score</label>
+                  <Input 
+                    type="number" 
+                    min="1" 
+                    max="10" 
+                    value={minScore}
+                    onChange={(e) => setMinScore(parseInt(e.target.value) || 5)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Source</label>
+                  <select 
+                    className="w-full p-2 border rounded"
+                    value={selectedSource}
+                    onChange={(e) => setSelectedSource(e.target.value)}
+                  >
+                    <option value="all">All Sources</option>
+                    <option value="weworkremotely">We Work Remotely</option>
+                    <option value="remoteok">RemoteOK</option>
+                    <option value="remotive">Remotive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Remote Type</label>
+                  <select 
+                    className="w-full p-2 border rounded"
+                    value={selectedRemote}
+                    onChange={(e) => setSelectedRemote(e.target.value)}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="remote">Remote Only</option>
+                    <option value="onsite">On-site Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Posted Within</label>
+                  <select 
+                    className="w-full p-2 border rounded"
+                    value={selectedDays}
+                    onChange={(e) => setSelectedDays(parseInt(e.target.value))}
+                  >
+                    <option value="1">Last 24h</option>
+                    <option value="3">Last 3 days</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="14">Last 14 days</option>
+                    <option value="30">Last 30 days</option>
+                  </select>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredJobs.length} of {jobs.length} jobs
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </header>
 
       <main className="container mx-auto p-4 md:p-6 space-y-8">
