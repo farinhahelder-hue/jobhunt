@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Application } from '@/types'
-import { MapPin, Calendar, MoreVertical, Trash2, Edit2 } from 'lucide-react'
+import { MapPin, Calendar, MoreVertical, Trash2, Edit2, Sparkles } from 'lucide-react'
 
 interface ApplicationCardProps {
   application: Application
@@ -86,6 +86,14 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
               </span>
             )}
           </div>
+
+          {/* Package indicator */}
+          {application.application_package && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-yellow-600">
+              <Sparkles className="h-3 w-3" />
+              Package prêt
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

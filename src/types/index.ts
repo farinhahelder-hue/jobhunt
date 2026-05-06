@@ -64,10 +64,28 @@ export interface Application {
   auto_apply_result: AutoApplyResult | null
   notes: string | null
   applied_at: string | null
+  application_package: ApplicationPackage | null
+  package_generated_at: string | null
   created_at: string
   updated_at: string
   // Joined fields
   job?: Job
+}
+
+export interface ApplicationPackage {
+  cover_letter: string
+  elevator_pitch: string
+  answers: {
+    why_company: string
+    why_role: string
+    experience_years: string
+    availability: string
+    salary_expectation: string
+    remote_preference: string
+  }
+  keywords_to_mention: string[]
+  red_flags: string[]
+  application_tips: string[]
 }
 
 // Application event types
