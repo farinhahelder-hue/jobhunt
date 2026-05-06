@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Save to JobHunt</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 320px;
+      min-height: 200px;
+      padding: 16px;
+      background: #f8f9fa;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .logo {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .job-preview {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid #e9ecef;
+    }
+    .job-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .job-company {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .job-location {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .job-source {
+      display: inline-block;
+      font-size: 11px;
+      color: #6366f1;
+      background: #e0e7ff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      cursor: pointer;
+    }
+    .form-group select:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #6366f1;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+    .btn-primary:disabled {
+      background: #a5b4fc;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: white;
+      color: #6366f1;
+      border: 1px solid #6366f1;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover {
+      background: #f5f3ff;
+    }
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .status-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .status-error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .status-loading {
+      background: #e0e7ff;
+      color: #6366f1;
+    }
+    .not-authenticated {
+      text-align: center;
+      padding: 20px;
+    }
+    .not-authenticated p {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 12px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Authenticated UI -->
+  <div id="app" class="hidden">
+    <div class="header">
+      <div class="logo">JH</div>
+      <h1>Save to JobHunt</h1>
+    </div>
+
+    <div id="job-preview" class="job-preview">
+      <div class="job-title" id="job-title">Loading...</div>
+      <div class="job-company" id="job-company"></div>
+      <div class="job-location" id="job-location"></div>
+      <span class="job-source" id="job-source"></span>
+    </div>
+
+    <div class="form-group">
+      <label for="status">Initial Status</label>
+      <select id="status">
+        <option value="wishlist">Wishlist</option>
+        <option value="saved" selected>Saved</option>
+        <option value="applied">Applied</option>
+        <option value="interviewing">Interviewing</option>
+      </select>
+    </div>
+
+    <button id="save-btn" class="btn btn-primary">💾 Save to JobHunt</button>
+
+    <div id="status-msg" class="status hidden"></div>
+
+    <button id="logout-btn" class="btn btn-secondary">🔒 Disconnect</button>
+  </div>
+
+  <!-- Not Authenticated UI -->
+  <div id="not-auth" class="not-authenticated hidden">
+    <div class="header">
+      <div class="logo">JH</div>
+      <h1>Save to JobHunt</h1>
+    </div>
+    <p>Please connect to JobHunt first to save job listings.</p>
+    <a href="https://jobhunt-git-main-farinhahelder-1210s-projects.vercel.app/login" 
+       target="_blank" 
+       class="btn btn-primary" 
+       style="display: block; text-decoration: none; margin-top: 12px;">
+       🔑 Connect to JobHunt
+    </a>
+  </div>
+
+  <!-- No Job Detected UI -->
+  <div id="no-job" class="not-authenticated hidden">
+    <div class="header">
+      <div class="logo">JH</div>
+      <h1>Save to JobHunt</h1>
+    </div>
+    <p>No job listing detected on this page.</p>
+    <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">
+      Visit a job posting on LinkedIn, Indeed, We Work Remotely, or Remote OK.
+    </p>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
