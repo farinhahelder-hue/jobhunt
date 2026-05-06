@@ -9,9 +9,10 @@ interface KanbanColumnProps {
   column: KanbanColumnConfig
   applications: Application[]
   onOpenPackage?: (applicationId: string, jobId: string) => void
+  onOpenInterviewPrep?: (jobId: string) => void
 }
 
-export function KanbanColumn({ column, applications, onOpenPackage }: KanbanColumnProps) {
+export function KanbanColumn({ column, applications, onOpenPackage, onOpenInterviewPrep }: KanbanColumnProps) {
   const {
     attributes,
     listeners,
@@ -53,6 +54,7 @@ export function KanbanColumn({ column, applications, onOpenPackage }: KanbanColu
                 key={application.id}
                 application={application}
                 onOpenPackage={onOpenPackage}
+                onOpenInterviewPrep={onOpenInterviewPrep}
               />
             ))}
           </div>

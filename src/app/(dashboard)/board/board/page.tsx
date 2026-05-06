@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { ApplicationPackageModal } from '@/components/ApplicationPackageModal'
+import { InterviewPrepModal } from '@/components/InterviewPrepModal'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
   DndContext, 
@@ -31,6 +32,7 @@ export default function KanbanBoardPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [packageModal, setPackageModal] = useState<{ open: boolean; applicationId: string; jobId: string } | null>(null)
+  const [interviewPrepModal, setInterviewPrepModal] = useState<{ open: boolean; jobId: string } | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -185,6 +187,7 @@ export default function KanbanBoardPage() {
                   column={column}
                   applications={getApplicationsForColumn(column.id)}
                   onOpenPackage={(appId, jobId) => setPackageModal({ open: true, applicationId: appId, jobId })}
+                  onOpenInterviewPrep={(jobId) => setInterviewPrepModal({ open: true, jobId })}
                 />
               </SortableContext>
             ))}
@@ -211,6 +214,14 @@ export default function KanbanBoardPage() {
             applicationId={packageModal.applicationId}
             jobId={packageModal.jobId}
             userId={user.id}
+          />
+        )}
+
+        {interviewPrepModal && (
+          <InterviewPrepModal
+            open={interviewPrepModal.open}
+            onOpenChange={(open) => setInterviewPrepModal(open ? interviewPrepModal : null)}
+            jobId={interviewPrepModal.jobId}
           />
         )}
       </div>

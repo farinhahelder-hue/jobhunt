@@ -5,14 +5,15 @@ import { CSS } from '@dnd-kit/utilities'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Application } from '@/types'
-import { MapPin, Calendar, MoreVertical, Trash2, Edit2, Sparkles } from 'lucide-react'
+import { MapPin, Calendar, MoreVertical, Trash2, Edit2, Sparkles, MessageSquare } from 'lucide-react'
 
 interface ApplicationCardProps {
   application: Application
   onOpenPackage?: (applicationId: string, jobId: string) => void
+  onOpenInterviewPrep?: (jobId: string) => void
 }
 
-export function ApplicationCard({ application, onOpenPackage }: ApplicationCardProps) {
+export function ApplicationCard({ application, onOpenPackage, onOpenInterviewPrep }: ApplicationCardProps) {
   const {
     attributes,
     listeners,
@@ -108,6 +109,21 @@ export function ApplicationCard({ application, onOpenPackage }: ApplicationCardP
             >
               <Sparkles className="h-3 w-3" />
               🎯 Dossier
+            </button>
+          )}
+
+          {/* Interview Prep button */}
+          {onOpenInterviewPrep && application.job_id && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onOpenInterviewPrep(application.job_id)
+              }}
+              className="mt-2 ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              <MessageSquare className="h-3 w-3" />
+              🎤 Prep
             </button>
           )}
         </CardContent>
