@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Save to JobHunt",
+  "version": "1.0.0",
+  "description": "Save job listings from LinkedIn, Indeed, and other job boards directly to your JobHunt board",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://fr.linkedin.com/*",
+    "https://*.linkedin.com/*",
+    "https://www.indeed.com/*",
+    "https://fr.indeed.com/*",
+    "https://*.indeed.com/*",
+    "https://weworkremotely.com/*",
+    "https://remoteok.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/jobs/view/*",
+        "https://*.linkedin.com/jobs/view/*",
+        "https://www.indeed.com/viewjob*",
+        "https://fr.indeed.com/viewjob*",
+        "https://weworkremotely.com/jobs/*",
+        "https://remoteok.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
