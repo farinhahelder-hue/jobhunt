@@ -8,9 +8,10 @@ import type { Application, KanbanColumnConfig } from '@/types'
 interface KanbanColumnProps {
   column: KanbanColumnConfig
   applications: Application[]
+  onOpenPackage?: (applicationId: string, jobId: string) => void
 }
 
-export function KanbanColumn({ column, applications }: KanbanColumnProps) {
+export function KanbanColumn({ column, applications, onOpenPackage }: KanbanColumnProps) {
   const {
     attributes,
     listeners,
@@ -51,6 +52,7 @@ export function KanbanColumn({ column, applications }: KanbanColumnProps) {
               <ApplicationCard
                 key={application.id}
                 application={application}
+                onOpenPackage={onOpenPackage}
               />
             ))}
           </div>

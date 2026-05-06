@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import type { ApplicationPackage } from '@/types'
 
 interface UseApplicationPackageReturn {
-  package: ApplicationPackage | null
+  applicationPackage: ApplicationPackage | null
   loading: boolean
   error: string | null
   generatedAt: string | null
@@ -14,7 +14,7 @@ interface UseApplicationPackageReturn {
 }
 
 export function useApplicationPackage(): UseApplicationPackageReturn {
-  const [package, setPackage] = useState<ApplicationPackage | null>(null)
+  const [applicationPackage, setApplicationPackage] = useState<ApplicationPackage | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
@@ -35,14 +35,14 @@ export function useApplicationPackage(): UseApplicationPackageReturn {
       if (fetchError) throw fetchError
 
       if (data?.application_package) {
-        setPackage(data.application_package as ApplicationPackage)
+        setApplicationPackage(data.application_package as ApplicationPackage)
         setGeneratedAt(data.package_generated_at)
         return data.application_package as ApplicationPackage
       }
 
       return null
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
       return null
     } finally {
       setLoading(false)
@@ -67,12 +67,12 @@ export function useApplicationPackage(): UseApplicationPackageReturn {
       }
 
       const generatedPkg = data.application_package as ApplicationPackage
-      setPackage(generatedPkg)
+      setApplicationPackage(generatedPkg)
       setGeneratedAt(new Date().toISOString())
 
       return generatedPkg
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
       return null
     } finally {
       setLoading(false)
@@ -80,7 +80,7 @@ export function useApplicationPackage(): UseApplicationPackageReturn {
   }, [])
 
   return {
-    package,
+    applicationPackage,
     loading,
     error,
     generatedAt,

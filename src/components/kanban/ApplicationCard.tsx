@@ -9,9 +9,10 @@ import { MapPin, Calendar, MoreVertical, Trash2, Edit2, Sparkles } from 'lucide-
 
 interface ApplicationCardProps {
   application: Application
+  onOpenPackage?: (applicationId: string, jobId: string) => void
 }
 
-export function ApplicationCard({ application }: ApplicationCardProps) {
+export function ApplicationCard({ application, onOpenPackage }: ApplicationCardProps) {
   const {
     attributes,
     listeners,
@@ -93,6 +94,21 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
               <Sparkles className="h-3 w-3" />
               Package prêt
             </div>
+          )}
+
+          {/* Package button */}
+          {onOpenPackage && application.job_id && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onOpenPackage(application.id, application.job_id)
+              }}
+              className="mt-2 flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              <Sparkles className="h-3 w-3" />
+              🎯 Dossier
+            </button>
           )}
         </CardContent>
       </Card>

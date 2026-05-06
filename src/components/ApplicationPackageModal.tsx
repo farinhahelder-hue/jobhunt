@@ -35,7 +35,7 @@ export function ApplicationPackageModal({
   jobId, 
   userId 
 }: ApplicationPackageModalProps) {
-  const { package: pkg, loading, error, generatedAt, fetchPackage, generatePackage } = useApplicationPackage()
+  const { applicationPackage: pkg, loading, error, generatedAt, fetchPackage, generatePackage } = useApplicationPackage()
   const [activeTab, setActiveTab] = useState<TabKey>('cover_letter')
   const [copiedSection, setCopiedSection] = useState<string | null>(null)
 

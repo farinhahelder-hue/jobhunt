@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { ApplicationPackageModal } from '@/components/ApplicationPackageModal'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
   DndContext, 
@@ -29,6 +30,7 @@ export default function KanbanBoardPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [packageModal, setPackageModal] = useState<{ open: boolean; applicationId: string; jobId: string } | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -182,6 +184,7 @@ export default function KanbanBoardPage() {
                 <KanbanColumnComponent
                   column={column}
                   applications={getApplicationsForColumn(column.id)}
+                  onOpenPackage={(appId, jobId) => setPackageModal({ open: true, applicationId: appId, jobId })}
                 />
               </SortableContext>
             ))}
@@ -199,6 +202,16 @@ export default function KanbanBoardPage() {
               <Button>Search Jobs</Button>
             </Link>
           </div>
+        )}
+
+        {packageModal && user && (
+          <ApplicationPackageModal
+            open={packageModal.open}
+            onOpenChange={(open) => setPackageModal(open ? packageModal : null)}
+            applicationId={packageModal.applicationId}
+            jobId={packageModal.jobId}
+            userId={user.id}
+          />
         )}
       </div>
     </div>
