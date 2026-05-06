@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2, X, Filter } from 'lucide-react'
+import { Briefcase, RefreshCw, ExternalLink, Globe, Plus, Bookmark, Loader2, X, Filter, AlertCircle, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 interface Job {
@@ -19,6 +19,8 @@ interface Job {
   summary: string
   score: number
   source: string
+  personalScore?: number | null
+  description?: string
 }
 
 // Simple Modal component
@@ -74,6 +76,7 @@ export default function JobsPage() {
   const [selectedSource, setSelectedSource] = useState<string>('all')
   const [selectedRemote, setSelectedRemote] = useState<string>('all')
   const [selectedDays, setSelectedDays] = useState<number>(7)
+  const [showScoringBanner, setShowScoringBanner] = useState(false)
   const supabase = createClient()
 
   // Fetch jobs from Supabase
@@ -86,6 +89,21 @@ export default function JobsPage() {
       if (data.success) {
         setJobs(data.jobs)
         setLastScrape(data.fetched_at)
+        
+        // Apply personal scoring if user is logged in
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && data.jobs.length < 100) {
+          // Client-side scoring for < 100 jobs
+          const scoreRes = await fetch('/api/jobs/score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobs: data.jobs, userId: user.id }),
+          })
+          const scoreData = await scoreRes.json()
+          if (scoreData.jobs) {
+            setJobs(scoreData.jobs)
+          }
+        }
       } else {
         setError(data.error || 'Failed to fetch jobs')
       }
@@ -179,6 +197,27 @@ export default function JobsPage() {
   useEffect(() => {
     fetchJobs()
   }, [])
+
+  // Check scoring preferences
+  useEffect(() => {
+    const checkScoringPreferences = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('scoring_preferences')
+        .eq('id', user.id)
+        .single()
+      
+      // Show banner if no preferences set
+      const prefs = data?.scoring_preferences || {}
+      if (!prefs.target_titles?.length && !prefs.target_keywords?.length && !prefs.excluded_keywords?.length) {
+        setShowScoringBanner(true)
+      }
+    }
+    checkScoringPreferences()
+  }, [supabase])
 
   // Filter jobs based on filters
   const filteredJobs = useMemo(() => {
@@ -318,6 +357,23 @@ export default function JobsPage() {
       </header>
 
       <main className="container mx-auto p-4 md:p-6 space-y-8">
+        {showScoringBanner && (
+          <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-500" />
+                <p className="text-sm">
+                  <strong>Personnalisez votre scoring!</strong> Configurez vos préférences pour des scores adaptés à votre profil.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/settings#scoring'}>
+                <Settings className="h-4 w-4 mr-2" />
+                Configurer
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {error && (
           <Card className="border-red-500">
             <CardContent className="p-4 text-red-500">{error}</CardContent>
@@ -336,8 +392,9 @@ export default function JobsPage() {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{job.title}</CardTitle>
-                      <span className={`text-2xl ${getScoreColor(job.score)}`}>
-                        {job.score}
+                      <span className={`text-2xl flex items-center gap-1 ${getScoreColor(job.personalScore ?? job.score)}`}>
+                        {job.personalScore != null && <span title="Personal score">⭐</span>}
+                        {job.personalScore ?? job.score}
                       </span>
                     </div>
                   </CardHeader>
@@ -382,7 +439,7 @@ export default function JobsPage() {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{job.title}</CardTitle>
-                      <span className={`text-2xl ${getScoreColor(job.score)}`}>
+                      <span className={`text-2xl ${getScoreColor(job.personalScore ?? job.score)}`}>
                         {job.score}
                       </span>
                     </div>
@@ -427,7 +484,7 @@ export default function JobsPage() {
               <tbody>
                 {otherJobs.map((job, i) => (
                   <tr key={i} className="border-b">
-                    <td className={`p-2 ${getScoreColor(job.score)}`}>{job.score}</td>
+                    <td className={`p-2 ${getScoreColor(job.personalScore ?? job.score)}`}>{job.personalScore ?? job.score}</td>
                     <td className="p-2 font-medium">{job.title}</td>
                     <td className="p-2">{job.company}</td>
                     <td className="p-2">{job.location}</td>
