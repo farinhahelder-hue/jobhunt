@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase'
@@ -20,7 +21,9 @@ import {
   Target,
   Users,
   BarChart3,
-  PieChart
+  PieChart,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 interface AnalyticsData {
@@ -54,8 +57,13 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
   const router = useRouter()
   const supabase = createClient()
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light')
+  }
 
   useEffect(() => {
     const getUser = async () => {
@@ -170,6 +178,14 @@ export default function DashboardPage() {
           ))}
         </nav>
 
+        {/* Theme Toggle */}
+        <div className="border-t p-4">
+          <Button variant="ghost" className="w-full justify-start" onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun className="mr-3 h-4 w-4" /> : <Moon className="mr-3 h-4 w-4" />}
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </Button>
+        </div>
+
         <div className="border-t p-4">
           <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
             <LogOut className="mr-3 h-4 w-4" />
@@ -203,6 +219,15 @@ export default function DashboardPage() {
               </Link>
             ))}
           </nav>
+
+          {/* Theme Toggle Mobile */}
+          <div className="p-4">
+            <Button variant="ghost" className="w-full justify-start" onClick={() => { toggleTheme(); setSidebarOpen(false) }}>
+              {theme === 'dark' ? <Sun className="mr-3 h-4 w-4" /> : <Moon className="mr-3 h-4 w-4" />}
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </Button>
+          </div>
+
           <div className="absolute bottom-0 left-0 right-0 border-t p-4">
             <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
               <LogOut className="mr-3 h-4 w-4" />

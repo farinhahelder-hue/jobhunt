@@ -15,8 +15,16 @@ A Chrome extension to save job listings directly from LinkedIn, Indeed, We Work 
 - Indeed (indeed.com/viewjob*)
 - We Work Remotely (weworkremotely.com/jobs/*)
 - Remote OK (remoteok.com/*)
+- Welcome to the Jungle (welcometothejungle.com/jobs/*)
 
-## Installation
+## Chrome Web Store
+
+1. Create developer account: https://chrome.google.com/webstore/devconsole/ ($5 one-time)
+2. Zip extension: `zip -r jobpilot-extension.zip chrome-extension/`
+3. Upload zip
+4. Submit for review
+
+## Privacy
 
 ### From Source (Development)
 
