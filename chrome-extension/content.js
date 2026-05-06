@@ -28,6 +28,11 @@
       return scrapeRemoteOK();
     }
 
+    // Welcome to the Jungle
+    if (url.includes('welcometothejungle.com/jobs')) {
+      return scrapeWelcomeToTheJungle();
+    }
+
     return null;
   }
 
@@ -192,6 +197,53 @@
       };
     } catch (e) {
       console.error('JobHunt: RemoteOK scrape error', e);
+      return null;
+    }
+  }
+
+  // Scrape Welcome to the Jungle
+  function scrapeWelcomeToTheJungle() {
+    try {
+      // Title - WTTJ uses various selectors
+      const titleEl = document.querySelector('h1') || 
+                      document.querySelector('[class*="title"]') ||
+                      document.querySelector('[data-testid="job-title"]');
+      const title = titleEl?.textContent?.trim() || '';
+
+      // Company - company info in the company card/badges
+      const companyEl = document.querySelector('[class*="company"]') ||
+                      document.querySelector('[class*="employer"]') ||
+                      document.querySelector('a[href*="/companies/"]') ||
+                      document.querySelector('[data-testid="company-name"]');
+      const company = companyEl?.textContent?.trim() || '';
+
+      // Location
+      const locationEl = document.querySelector('[class*="location"]') ||
+                      document.querySelector('[class*="place"]') ||
+                      document.querySelector('[data-testid="location"]');
+      const location = locationEl?.textContent?.trim() || 'Remote';
+
+      // Description - WTTJ job details
+      const descEl = document.querySelector('[class*="description"]') ||
+                    document.querySelector('[class*="content"]') ||
+                    document.querySelector('[class*="details"]') ||
+                    document.querySelector('[data-testid="job-description"]');
+      const description = descEl?.textContent?.trim() || '';
+
+      if (!title && !company) {
+        return null;
+      }
+
+      return {
+        title,
+        company,
+        location,
+        description,
+        url: window.location.href,
+        source: 'welcometothejungle'
+      };
+    } catch (e) {
+      console.error('JobHunt: Welcome to the Jungle scrape error', e);
       return null;
     }
   }

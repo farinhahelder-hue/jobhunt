@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Save to JobHunt",
   "version": "1.0.0",
-  "description": "Save job listings from LinkedIn, Indeed, and other job boards directly to your JobHunt board",
+  "description": "Save job listings from LinkedIn, Indeed, Welcome to the Jungle, and other job boards directly to your JobHunt board",
   "permissions": [
     "activeTab",
     "storage",
@@ -16,7 +16,9 @@
     "https://fr.indeed.com/*",
     "https://*.indeed.com/*",
     "https://weworkremotely.com/*",
-    "https://remoteok.com/*"
+    "https://remoteok.com/*",
+    "https://www.welcometothejungle.com/*",
+    "https://welcometothejungle.com/*"
   ],
   "content_scripts": [
     {
@@ -26,7 +28,9 @@
         "https://www.indeed.com/viewjob*",
         "https://fr.indeed.com/viewjob*",
         "https://weworkremotely.com/jobs/*",
-        "https://remoteok.com/*"
+        "https://remoteok.com/*",
+        "https://www.welcometothejungle.com/jobs/*",
+        "https://welcometothejungle.com/jobs/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
