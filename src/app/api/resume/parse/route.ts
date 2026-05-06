@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const ext = fileName.split('.').pop()?.toLowerCase()
 
     if (ext === 'pdf') {
-      const result = await pdf.default(buffer as any)
+      const result = await pdf(buffer as any)
       content = result.text
     } else if (ext === 'docx') {
       const result = await mammoth.extractRawText({ arrayBuffer: buffer })
