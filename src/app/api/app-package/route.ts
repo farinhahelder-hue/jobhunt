@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const openaiKey = process.env.OPENAI_API_KEY || ''
 const serverSupabase = createSupabaseClient(supabaseUrl, serviceKey)
 
 // System prompt for application package generation
@@ -37,16 +36,30 @@ Règles:
 
 JSON ONLY - pas de texte avant ou après.`
 
+// GET /api/app-package
+export async function GET() {
+  return NextResponse.json({ success: false, error: 'Method Not Allowed' }, { status: 405 })
+}
+
 // POST /api/apply/prepare
 export async function POST(request: Request) {
   try {
-    const { job_id, user_id } = await request.json()
-
-    if (!job_id || !user_id) {
-      return NextResponse.json({ success: false, error: 'Missing job_id or user_id' })
+    let body;
+    try {
+      body = await request.json()
+    } catch (e) {
+      return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    if (!openaiKey) {
+    const { job_id, user_id } = body
+
+    if (!job_id || !user_id) {
+      return NextResponse.json({ success: false, error: 'Missing job_id or user_id' }, { status: 400 })
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY || ''
+
+    if (!apiKey) {
       return NextResponse.json({ success: false, error: 'OpenAI API key not configured' })
     }
 
@@ -105,7 +118,7 @@ Génère le package de candidature JSON.`
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
