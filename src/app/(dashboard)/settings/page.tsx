@@ -7,13 +7,22 @@ import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2, Mail, Bell, FileText, Upload, Trash2, Check } from 'lucide-react'
+import { Briefcase, Moon, Sun, Monitor, Download, Save, Loader2, Mail, Bell, FileText, Upload, Trash2, Check, Star } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 interface UserPreferences {
   email_notifications: boolean
   notify_score_threshold: number
   notify_frequency: 'daily' | 'weekly'
+}
+
+interface ScoringPreferences {
+  target_titles?: string[]
+  target_keywords?: string[]
+  excluded_keywords?: string[]
+  min_salary?: number
+  preferred_company_size?: string
+  preferred_timezones?: string[]
 }
 
 interface BaseResume {
@@ -35,6 +44,15 @@ export default function SettingsPage() {
     notify_score_threshold: 7,
     notify_frequency: 'daily',
   })
+  const [scoringPreferences, setScoringPreferences] = useState<ScoringPreferences>({
+    target_titles: [],
+    target_keywords: [],
+    excluded_keywords: [],
+    min_salary: undefined,
+    preferred_company_size: 'any',
+    preferred_timezones: [],
+  })
+  const [savingScoring, setSavingScoring] = useState(false)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -48,11 +66,14 @@ export default function SettingsPage() {
         // Load preferences
         const { data } = await supabase
           .from('user_profiles')
-          .select('notification_preferences')
+          .select('notification_preferences, scoring_preferences')
           .eq('user_id', user.id)
           .single()
         if (data?.notification_preferences) {
           setPreferences({ ...preferences, ...data.notification_preferences })
+        }
+        if (data?.scoring_preferences) {
+          setScoringPreferences(data.scoring_preferences)
         }
         
         // Load user's resume
@@ -85,6 +106,25 @@ export default function SettingsPage() {
       alert('Failed to save')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Save scoring preferences
+  const handleSaveScoringPreferences = async () => {
+    if (!user) return
+    setSavingScoring(true)
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ scoring_preferences: scoringPreferences })
+        .eq('user_id', user.id)
+      if (error) throw error
+      alert('Scoring preferences saved!')
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save scoring preferences')
+    } finally {
+      setSavingScoring(false)
     }
   }
 
@@ -396,6 +436,78 @@ export default function SettingsPage() {
                     </Button>
                   </>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Scoring Preferences */}
+          <Card id="scoring">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-500" /> Scoring Preferences
+              </CardTitle>
+              <CardDescription>Personnalisez le scoring des offres</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Target Titles (séparés par virgule)</label>
+                  <Input 
+                    placeholder="Product Manager, CPO, Head of Product"
+                    value={scoringPreferences.target_titles?.join(', ') || ''}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, target_titles: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Target Keywords</label>
+                  <Input 
+                    placeholder="async, remote-first, startup"
+                    value={scoringPreferences.target_keywords?.join(', ') || ''}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, target_keywords: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Excluded Keywords</label>
+                  <Input 
+                    placeholder="on-site, sales, cold calling"
+                    value={scoringPreferences.excluded_keywords?.join(', ') || ''}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, excluded_keywords: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Minimum Salary (USD/an)</label>
+                  <Input 
+                    type="number"
+                    placeholder="80000"
+                    value={scoringPreferences.min_salary || ''}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, min_salary: parseInt(e.target.value) || undefined})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Company Size</label>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={scoringPreferences.preferred_company_size || 'any'}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, preferred_company_size: e.target.value})}
+                  >
+                    <option value="any">Any</option>
+                    <option value="startup">Startup (1-50)</option>
+                    <option value="scaleup">Scaleup (50-500)</option>
+                    <option value="enterprise">Enterprise (500+)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Preferred Timezones</label>
+                  <Input 
+                    placeholder="UTC, CET, EST"
+                    value={scoringPreferences.preferred_timezones?.join(', ') || ''}
+                    onChange={(e) => setScoringPreferences({...scoringPreferences, preferred_timezones: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                  />
+                </div>
+                <Button onClick={handleSaveScoringPreferences} disabled={savingScoring} className="w-full">
+                  {savingScoring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Scoring Preferences
+                </Button>
               </div>
             </CardContent>
           </Card>
